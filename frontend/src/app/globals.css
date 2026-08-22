@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+:root {
+  --paper: #ffffff;
+  --canvas: #f5f4f0;
+  --ink: #1b2a4a;
+  --ink-soft: #3f4a5e;
+  --line: #e1ded6;
+  --muted: #6b675d;
+  --signal: #a63d2f;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-canvas: var(--canvas);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-line: var(--line);
+  --color-muted: var(--muted);
+  --color-signal: var(--signal);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-newsreader);
+}
+
+body {
+  background: var(--canvas);
+  color: var(--ink-soft);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* The document itself: a page of paper, set in a serif built for reading. */
+.document-preview {
+  font-family: var(--font-serif), Georgia, "Times New Roman", serif;
+  color: #1a1a1a;
+  line-height: 1.65;
+  font-size: 1.0625rem;
+}
+
+.document-preview ol {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+
+/* A blank waiting to be filled in, like an unfinished line on a paper form. */
+.blank,
+.document-preview .filled-value--empty {
+  border-bottom: 1px dotted var(--muted);
+  padding-bottom: 1px;
+  color: var(--muted);
+  font-style: italic;
+  font-weight: 500;
+}
+
+/* The moment a blank is filled: it solidifies into real, underlined ink. */
+.document-preview .filled-value {
+  font-weight: 600;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--ink);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  transition: color 150ms ease;
+}
+
+.cover-page {
+  margin-bottom: 2rem;
+}
+
+.cover-page h2 {
+  margin-bottom: 0.5rem;
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 1.625rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.cover-page__meta {
+  margin-bottom: 0.25rem;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+.cover-page__parties {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.cover-page__party-label {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.cover-page__party-name {
+  margin-top: 0.25rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.cover-page__party-address {
+  white-space: pre-line;
+  color: var(--ink-soft);
+}
