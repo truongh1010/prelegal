@@ -8,6 +8,14 @@ function escapeHtml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+// The escaped value is spliced into raw markdown before it's passed to marked(),
+// so HTML-escaping alone isn't enough — markdown syntax like `[x](javascript:...)`
+// would still be parsed into a real, clickable link. Backslash-escape CommonMark's
+// syntax characters first so field values render as inert literal text.
+function escapeMarkdown(value: string): string {
+  return value.replace(/[\\`*_[\]()!|~#]/g, "\\$&");
+}
+
 /**
  * Replaces every `<span class="coverpage_link">Label</span>` placeholder in the raw
  * template markdown with the corresponding field's filled-in value (or a bracketed
@@ -23,7 +31,7 @@ export function fillTemplateBody(
   for (const field of fields) {
     if (!field.coverpageLabel) continue;
     const value = values[field.key]?.trim();
-    const display = value ? escapeHtml(value) : `[${field.label}]`;
+    const display = value ? escapeHtml(escapeMarkdown(value)) : `[${field.label}]`;
     const className = value ? "filled-value" : "filled-value filled-value--empty";
     const replacement = `<span class="${className}">${display}</span>`;
     const pattern = new RegExp(
