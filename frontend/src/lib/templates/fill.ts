@@ -31,7 +31,7 @@ export function fillTemplateBody(
   for (const field of fields) {
     if (!field.coverpageLabel) continue;
     const value = values[field.key]?.trim();
-    const display = value ? escapeHtml(escapeMarkdown(value)) : `[${field.label}]`;
+    const display = value ? escapeHtml(escapeMarkdown(value)) : escapeHtml(field.label);
     const className = value ? "filled-value" : "filled-value filled-value--empty";
     const replacement = `<span class="${className}">${display}</span>`;
     const pattern = new RegExp(

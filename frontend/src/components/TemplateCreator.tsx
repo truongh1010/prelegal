@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { marked } from "marked";
 import type { TemplateDefinition, TemplateValues } from "@/lib/templates/types";
 import { fillTemplateBody } from "@/lib/templates/fill";
@@ -55,14 +54,14 @@ export function TemplateCreator({
   const termsFields = template.fields.filter((field) => field.group === "terms");
 
   return (
-    <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-8 px-6 py-10 lg:grid-cols-[380px_1fr]">
-      <form className="flex flex-col gap-6" onSubmit={(event) => event.preventDefault()}>
+    <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-10 px-6 py-10 lg:grid-cols-[340px_1fr]">
+      <form className="flex flex-col gap-7" onSubmit={(event) => event.preventDefault()}>
         <div>
-          <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-800">
-            &larr; All templates
-          </Link>
-          <h1 className="mt-2 text-xl font-semibold text-zinc-900">{template.name}</h1>
-          <p className="mt-1 text-sm text-zinc-600">{template.description}</p>
+          <p className="font-mono text-[0.6875rem] tracking-[0.1em] text-muted uppercase">
+            Create
+          </p>
+          <h1 className="mt-1 font-serif text-2xl font-semibold text-ink">{template.name}</h1>
+          <p className="mt-1 text-sm text-muted">{template.description}</p>
         </div>
 
         <FieldGroup title="Party 1" fields={party1Fields} values={values} onChange={handleChange} />
@@ -73,14 +72,18 @@ export function TemplateCreator({
           type="button"
           onClick={handleDownload}
           disabled={isDownloading}
-          className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
+          className="rounded-md bg-ink px-4 py-2.5 text-sm font-medium text-paper transition-colors hover:bg-ink-soft disabled:opacity-50"
         >
           {isDownloading ? "Preparing PDF…" : "Download PDF"}
         </button>
       </form>
 
-      <div className="rounded-lg border border-zinc-200 bg-white p-10 shadow-sm">
-        <div ref={previewRef} className="document-preview">
+      <div className="lg:pt-2">
+        <div
+          ref={previewRef}
+          data-testid="document-preview"
+          className="document-preview mx-auto max-w-2xl rounded-sm bg-paper p-12 shadow-[0_1px_2px_rgba(27,42,74,0.06),0_16px_32px_-12px_rgba(27,42,74,0.18)]"
+        >
           <CoverPage template={template} values={values} />
           <div dangerouslySetInnerHTML={{ __html: filledHtml }} />
         </div>

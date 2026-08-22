@@ -1,7 +1,7 @@
 import type { TemplateDefinition, TemplateField, TemplateValues } from "@/lib/templates/types";
 
-function formatDate(value: string | undefined): string {
-  if (!value) return "____________________";
+function formatDate(value: string): string | undefined {
+  if (!value) return undefined;
   const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
@@ -18,13 +18,15 @@ function PartyBlock({
 }) {
   const nameField = fields.find((field) => field.type === "text");
   const addressField = fields.find((field) => field.type === "textarea");
-  const name = (nameField ? values[nameField.key] : "")?.trim() || `[${label} Name]`;
+  const name = (nameField ? values[nameField.key] : "")?.trim();
   const address = addressField ? values[addressField.key]?.trim() : undefined;
 
   return (
     <div>
       <p className="cover-page__party-label">{label}</p>
-      <p className="cover-page__party-name">{name}</p>
+      <p className="cover-page__party-name">
+        {name || <span className="blank">{label.toLowerCase()} name</span>}
+      </p>
       {address && <p className="cover-page__party-address">{address}</p>}
     </div>
   );
@@ -47,14 +49,13 @@ export function CoverPage({
       <h2>{template.name}</h2>
       {dateFields.map((field) => (
         <p key={field.key} className="cover-page__meta">
-          {field.label}: {formatDate(values[field.key])}
+          {field.label}: {formatDate(values[field.key]) ?? <span className="blank">not set</span>}
         </p>
       ))}
       <div className="cover-page__parties">
         <PartyBlock label="Party 1" fields={party1Fields} values={values} />
         <PartyBlock label="Party 2" fields={party2Fields} values={values} />
       </div>
-      <hr />
     </div>
   );
 }

@@ -5,34 +5,39 @@ export default function Home() {
   const templates = getCatalogWithStatus();
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-16">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-6 py-16">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">Prelegal</h1>
-        <p className="mt-2 text-zinc-600">
-          Fill in a few details and generate a ready-to-sign agreement from Common
-          Paper&apos;s standard legal templates.
+        <p className="font-mono text-[0.6875rem] tracking-[0.15em] text-muted uppercase">
+          Standard legal templates
+        </p>
+        <h1 className="mt-3 font-serif text-4xl font-semibold text-ink">
+          Fill in a form. Get a document ready to sign.
+        </h1>
+        <p className="mt-3 max-w-xl text-ink-soft">
+          Answer a few questions about the deal and watch the agreement fill in
+          live, word for word, then download it.
         </p>
       </div>
 
-      <ul className="flex flex-col divide-y divide-zinc-200 rounded-lg border border-zinc-200">
+      <ul className="flex flex-col divide-y divide-line rounded-lg border border-line bg-paper">
         {templates.map((template) => (
           <li
             key={template.filename}
-            className="flex items-center justify-between gap-4 p-4"
+            className="flex items-center justify-between gap-6 p-5"
           >
             <div>
-              <p className="font-medium text-zinc-900">{template.name}</p>
-              <p className="text-sm text-zinc-600">{template.description}</p>
+              <p className="font-medium text-ink">{template.name}</p>
+              <p className="mt-0.5 text-sm text-muted">{template.description}</p>
             </div>
             {template.slug ? (
               <Link
                 href={`/create/${template.slug}`}
-                className="shrink-0 rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
+                className="shrink-0 rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper transition-colors hover:bg-ink-soft"
               >
                 Create
               </Link>
             ) : (
-              <span className="shrink-0 rounded-md bg-zinc-100 px-4 py-2 text-sm text-zinc-400">
+              <span className="shrink-0 font-mono text-[0.6875rem] tracking-[0.08em] text-muted uppercase">
                 Coming soon
               </span>
             )}
