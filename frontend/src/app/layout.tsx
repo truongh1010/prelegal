@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Newsreader } from "next/font/google";
+import { AuthGate } from "@/components/AuthGate";
 import { SiteHeader } from "@/components/SiteHeader";
 import "./globals.css";
 
@@ -31,8 +32,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} ${newsreader.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-canvas">
-        <SiteHeader />
-        <div className="flex flex-1 flex-col">{children}</div>
+        <AuthGate>
+          <SiteHeader />
+          <div className="flex flex-1 flex-col">{children}</div>
+        </AuthGate>
       </body>
     </html>
   );

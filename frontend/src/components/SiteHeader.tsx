@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LogoutButton } from "./LogoutButton";
 
 export function SiteHeader() {
   return (
@@ -10,9 +11,12 @@ export function SiteHeader() {
         >
           Prelegal
         </Link>
-        <span className="font-mono text-[0.6875rem] tracking-[0.1em] text-muted uppercase">
-          Common Paper templates
-        </span>
+        <div className="flex items-center gap-4">
+          <span className="font-mono text-[0.6875rem] tracking-[0.1em] text-muted uppercase">
+            Common Paper templates
+          </span>
+          <LogoutButton />
+        </div>
       </div>
     </header>
   );

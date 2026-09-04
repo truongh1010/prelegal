@@ -1,8 +1,10 @@
 import fs from "node:fs";
 import { expect, test } from "@playwright/test";
+import { skipLogin } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
-  await page.goto("/create/mutual-nda");
+  await skipLogin(page);
+  await page.goto("/create/mutual-nda/");
 });
 
 test("shows blank placeholders before anything is filled in", async ({ page }) => {

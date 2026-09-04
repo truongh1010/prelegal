@@ -1,4 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { skipLogin } from "./helpers";
+
+test.beforeEach(async ({ page }) => {
+  await skipLogin(page);
+});
 
 test("lists every catalog template with only the Mutual NDA enabled", async ({ page }) => {
   await page.goto("/");
@@ -29,7 +34,7 @@ test("the page background is light in both light and dark OS color schemes", asy
 test("clicking Create navigates to the Mutual NDA creator", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("link", { name: "Create" }).click();
-  await expect(page).toHaveURL(/\/create\/mutual-nda$/);
+  await expect(page).toHaveURL(/\/create\/mutual-nda\/$/);
   await expect(
     page.locator("form").getByRole("heading", { name: "Mutual Non-Disclosure Agreement" }),
   ).toBeVisible();

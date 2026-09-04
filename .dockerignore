@@ -1,0 +1,15 @@
+.git
+.env
+.env.*
+
+**/node_modules
+frontend/.next
+frontend/out
+frontend/test-results
+frontend/playwright-report
+frontend/blob-report
+
+backend/.venv
+backend/data
+backend/static
+**/__pycache__

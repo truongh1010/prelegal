@@ -14,7 +14,9 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: `npm run build && npm run start -- -p ${PORT}`,
+    // Statically exported (output: "export") - "next start" no longer applies, so
+    // serve the exported "out/" directory the same way the FastAPI backend does.
+    command: `npm run build && python3 -m http.server ${PORT} --directory out`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
