@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     database_path: Path = Path("data/prelegal.db")
     static_dir: Path = Path("static")
+    # Resolved relative to the backend process's cwd, same as static_dir/database_path
+    # above: "../catalog.json" from backend/ locally (dev), and from /app in Docker,
+    # where the Dockerfile places catalog.json one level above the app's WORKDIR to
+    # match - see Dockerfile.
+    catalog_path: Path = Path("../catalog.json")
     cors_origins: list[str] = ["http://localhost:3000"]
 
 

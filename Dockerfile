@@ -25,6 +25,11 @@ RUN uv sync --frozen --no-dev
 
 COPY --from=frontend-builder /repo/frontend/out ./static
 
+# backend/app/core/config.py's catalog_path default ("../catalog.json") is resolved
+# relative to the backend process's cwd (WORKDIR /app below), so this is placed one
+# level above it to match - the same relationship catalog.json has to backend/ locally.
+COPY catalog.json /catalog.json
+
 ENV PATH="/app/.venv/bin:$PATH"
 EXPOSE 8000
 
