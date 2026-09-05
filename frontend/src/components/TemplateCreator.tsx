@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { marked } from "marked";
 import type { TemplateDefinition, TemplateValues } from "@/lib/templates/types";
 import { fillTemplateBody } from "@/lib/templates/fill";
-import { FieldGroup } from "@/components/FieldGroup";
+import { ChatPanel } from "@/components/ChatPanel";
 import { CoverPage } from "@/components/CoverPage";
 
 function initialValues(template: TemplateDefinition): TemplateValues {
@@ -27,10 +27,6 @@ export function TemplateCreator({
     return marked.parse(filledBody) as string;
   }, [rawContent, template.fields, values]);
 
-  function handleChange(key: string, value: string) {
-    setValues((prev) => ({ ...prev, [key]: value }));
-  }
-
   async function handleDownload() {
     if (!previewRef.current) return;
     setIsDownloading(true);
@@ -49,13 +45,9 @@ export function TemplateCreator({
     }
   }
 
-  const party1Fields = template.fields.filter((field) => field.group === "party1");
-  const party2Fields = template.fields.filter((field) => field.group === "party2");
-  const termsFields = template.fields.filter((field) => field.group === "terms");
-
   return (
     <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-10 px-6 py-10 lg:grid-cols-[340px_1fr]">
-      <form className="flex flex-col gap-7" onSubmit={(event) => event.preventDefault()}>
+      <div className="flex flex-col gap-7">
         <div>
           <p className="font-mono text-[0.6875rem] tracking-[0.1em] text-muted uppercase">
             Create
@@ -64,9 +56,7 @@ export function TemplateCreator({
           <p className="mt-1 text-sm text-muted">{template.description}</p>
         </div>
 
-        <FieldGroup title="Party 1" fields={party1Fields} values={values} onChange={handleChange} />
-        <FieldGroup title="Party 2" fields={party2Fields} values={values} onChange={handleChange} />
-        <FieldGroup title="Terms" fields={termsFields} values={values} onChange={handleChange} />
+        <ChatPanel fields={values} onFieldsChange={setValues} />
 
         <button
           type="button"
@@ -76,7 +66,7 @@ export function TemplateCreator({
         >
           {isDownloading ? "Preparing PDF…" : "Download PDF"}
         </button>
-      </form>
+      </div>
 
       <div className="lg:pt-2">
         <div
