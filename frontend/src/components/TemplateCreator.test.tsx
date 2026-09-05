@@ -1,8 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TemplateCreator } from "./TemplateCreator";
 import type { TemplateDefinition } from "@/lib/templates/types";
+import { sendChatTurn } from "@/lib/chat/api";
 
 const htmlMock = vi.fn().mockResolvedValue(undefined);
 const saveMock = vi.fn();
@@ -13,6 +14,18 @@ vi.mock("jspdf", () => ({
     return { html: htmlMock, save: saveMock };
   }),
 }));
+
+vi.mock("@/lib/chat/api", () => ({
+  sendChatTurn: vi.fn(),
+}));
+
+const sendChatTurnMock = vi.mocked(sendChatTurn);
+
+beforeEach(() => {
+  sendChatTurnMock.mockReset();
+  // The opening turn fired on mount; individual tests layer further responses on top.
+  sendChatTurnMock.mockResolvedValue({ message: "Who are the parties?", fields: {} });
+});
 
 const template: TemplateDefinition = {
   slug: "mutual-nda",
@@ -40,14 +53,25 @@ function renderPreview(...args: Parameters<typeof render>) {
   return Object.assign(within(element), { element });
 }
 
+async function sendMessage(user: ReturnType<typeof userEvent.setup>, text: string) {
+  await user.click(screen.getByLabelText("Message"));
+  await user.paste(text);
+  await user.click(screen.getByRole("button", { name: /send/i }));
+}
+
 describe("TemplateCreator", () => {
-  it("shows a blank placeholder for the Purpose field until the user fills it in", async () => {
+  it("shows a blank placeholder for the Purpose field until the AI extracts it", async () => {
     const user = userEvent.setup();
     const preview = renderPreview(<TemplateCreator template={template} rawContent={rawContent} />);
 
+    await waitFor(() => screen.getByText("Who are the parties?"));
     expect(preview.getByText("Purpose", { selector: ".filled-value--empty" })).toBeInTheDocument();
 
-    await user.type(screen.getByLabelText("Purpose"), "evaluating a partnership");
+    sendChatTurnMock.mockResolvedValueOnce({
+      message: "Got it, thanks.",
+      fields: { purpose: "evaluating a partnership" },
+    });
+    await sendMessage(user, "We're evaluating a partnership.");
 
     await waitFor(() => {
       expect(preview.getByText(/evaluating a partnership/)).toBeInTheDocument();
@@ -55,13 +79,17 @@ describe("TemplateCreator", () => {
     expect(preview.queryByText("Purpose", { selector: ".filled-value--empty" })).not.toBeInTheDocument();
   });
 
-  it("neutralizes a markdown-injection payload typed into a field instead of rendering a real link", async () => {
+  it("neutralizes a markdown-injection payload extracted from chat instead of rendering a real link", async () => {
     const user = userEvent.setup();
     const preview = renderPreview(<TemplateCreator template={template} rawContent={rawContent} />);
 
-    // user.type() parses [ and ] as special key syntax, so paste the literal payload instead.
-    await user.click(screen.getByLabelText("Purpose"));
-    await user.paste("[click here](javascript:alert(1))");
+    await waitFor(() => screen.getByText("Who are the parties?"));
+
+    sendChatTurnMock.mockResolvedValueOnce({
+      message: "Got it, thanks.",
+      fields: { purpose: "[click here](javascript:alert(1))" },
+    });
+    await sendMessage(user, "It's for [click here](javascript:alert(1))");
 
     await waitFor(() => {
       expect(preview.getByText(/click here/)).toBeInTheDocument();
@@ -72,6 +100,7 @@ describe("TemplateCreator", () => {
   it("hands the rendered preview to jsPDF and saves a file named after the template slug", async () => {
     const user = userEvent.setup();
     render(<TemplateCreator template={template} rawContent={rawContent} />);
+    await waitFor(() => screen.getByText("Who are the parties?"));
 
     await user.click(screen.getByRole("button", { name: /download pdf/i }));
 
@@ -90,6 +119,7 @@ describe("TemplateCreator", () => {
 
     const user = userEvent.setup();
     render(<TemplateCreator template={template} rawContent={rawContent} />);
+    await waitFor(() => screen.getByText("Who are the parties?"));
 
     const button = screen.getByRole("button", { name: /download pdf/i });
     await user.click(button);
