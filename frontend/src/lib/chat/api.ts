@@ -23,6 +23,7 @@ export async function sendChatTurn(
   const response = await fetch(`${API_BASE}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ template, messages, fields }),
   });
 
@@ -47,6 +48,7 @@ export async function sendDiscoverTurn(messages: ChatMessage[]): Promise<Discove
   const response = await fetch(`${API_BASE}/api/discover`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ messages }),
   });
 

@@ -14,6 +14,7 @@ def init_db() -> None:
     settings.database_path.parent.mkdir(parents=True, exist_ok=True)
 
     from app.models.user import User  # noqa: F401  (registers the table with SQLModel.metadata)
+    from app.models.user_session import UserSession  # noqa: F401  (same, for sessions)
 
     SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)

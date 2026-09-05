@@ -1,11 +1,13 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from openai import OpenAIError
 from pydantic import BaseModel
 
 from app.api.routes.chat import ChatMessage
+from app.core.auth import get_current_user
 from app.core.catalog import read_catalog
 from app.core.documents import DOCUMENTS
 from app.core.openai_client import client
+from app.models.user import User
 
 router = APIRouter()
 
@@ -86,7 +88,7 @@ def generate_discover_turn(messages: list[ChatMessage]) -> DiscoverTurnOutput:
 
 
 @router.post("/discover")
-def discover(request: DiscoverRequest) -> DiscoverTurnOutput:
+def discover(request: DiscoverRequest, user: User = Depends(get_current_user)) -> DiscoverTurnOutput:
     try:
         return generate_discover_turn(request.messages)
     except OpenAIError as error:

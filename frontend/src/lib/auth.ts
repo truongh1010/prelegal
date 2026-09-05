@@ -1,44 +1,64 @@
-const AUTH_KEY = "prelegal:authed";
-/** Fires whenever this tab changes the flag, since the native "storage" event only fires cross-tab. */
+/** Fires whenever this tab's auth state changes (sign in, sign up, or sign out),
+ * so AuthGate knows to re-check the session. */
 const AUTH_CHANGE_EVENT = "prelegal:auth-change";
 
-/** localStorage can throw (privacy mode, disabled storage) - treat those as "not logged in". */
-function storage(): Storage | undefined {
+// Empty by default so requests are same-origin (works once FastAPI serves the static
+// export in Docker). Set NEXT_PUBLIC_API_BASE_URL to point at a separately-running
+// backend when using `next dev` directly.
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+
+export class AuthError extends Error {}
+
+async function readErrorDetail(response: Response, fallback: string): Promise<string> {
   try {
-    return typeof window !== "undefined" ? window.localStorage : undefined;
+    const data = await response.json();
+    if (typeof data.detail === "string") return data.detail;
+    if (Array.isArray(data.detail)) {
+      const messages = data.detail.map((item: { msg?: string }) => item.msg).filter(Boolean);
+      if (messages.length > 0) return messages.join(" ");
+    }
   } catch {
-    return undefined;
+    // Body wasn't JSON - fall through to the fallback message.
   }
+  return fallback;
 }
 
-export function isAuthed(): boolean {
-  return storage()?.getItem(AUTH_KEY) === "true";
-}
+async function submitCredentials(path: string, email: string, password: string, fallback: string): Promise<void> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ email, password }),
+  });
 
-export function setAuthed(): void {
-  try {
-    storage()?.setItem(AUTH_KEY, "true");
-  } catch {
-    // Quota exceeded or storage disabled - nothing to do, gate stays as-is.
+  if (!response.ok) {
+    throw new AuthError(await readErrorDetail(response, fallback));
   }
   window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
 }
 
-export function clearAuthed(): void {
-  try {
-    storage()?.removeItem(AUTH_KEY);
-  } catch {
-    // See setAuthed().
-  }
+export function signUp(email: string, password: string): Promise<void> {
+  return submitCredentials("/api/signup", email, password, "Couldn't create an account.");
+}
+
+export function signIn(email: string, password: string): Promise<void> {
+  return submitCredentials("/api/signin", email, password, "Couldn't sign in.");
+}
+
+export async function signOut(): Promise<void> {
+  await fetch(`${API_BASE}/api/logout`, { method: "POST", credentials: "include" });
   window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
 }
 
-/** Subscribes to auth-flag changes, both cross-tab ("storage") and same-tab (custom event). */
+/** Asks the backend whether the session cookie (if any) is still valid. An
+ * httpOnly cookie can't be read from JS directly, so this round-trip is the
+ * only way to know the current auth state. */
+export async function checkSession(): Promise<boolean> {
+  const response = await fetch(`${API_BASE}/api/me`, { credentials: "include" });
+  return response.ok;
+}
+
 export function subscribeToAuthChange(callback: () => void): () => void {
-  window.addEventListener("storage", callback);
   window.addEventListener(AUTH_CHANGE_EVENT, callback);
-  return () => {
-    window.removeEventListener("storage", callback);
-    window.removeEventListener(AUTH_CHANGE_EVENT, callback);
-  };
+  return () => window.removeEventListener(AUTH_CHANGE_EVENT, callback);
 }

@@ -1,10 +1,12 @@
 import type { Page } from "@playwright/test";
 
-/** Seeds the fake-auth flag before the app's first script runs, so tests that
- * aren't about the login screen itself can go straight to the real content. */
+/** Mocks a valid session (GET /api/me succeeds) before the app's first script
+ * runs, so tests that aren't about the login screen itself can go straight to
+ * the real content. The e2e webServer has no live backend, so every route the
+ * app calls has to be mocked - see {@link mockChat}/{@link mockDiscover}. */
 export async function skipLogin(page: Page) {
-  await page.addInitScript(() => {
-    window.localStorage.setItem("prelegal:authed", "true");
+  await page.route("**/api/me", async (route) => {
+    await route.fulfill({ json: { email: "someone@example.com" } });
   });
 }
 

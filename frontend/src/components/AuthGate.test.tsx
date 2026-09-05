@@ -1,14 +1,24 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AuthGate } from "./AuthGate";
 
+function mockFetchOnce(response: { ok: boolean }) {
+  vi.mocked(fetch).mockResolvedValueOnce(response as Response);
+}
+
+beforeEach(() => {
+  vi.stubGlobal("fetch", vi.fn());
+});
+
 afterEach(() => {
-  window.localStorage.clear();
+  vi.unstubAllGlobals();
 });
 
 describe("AuthGate", () => {
-  it("shows the login screen and hides the protected content by default", async () => {
+  it("shows the login screen when there's no valid session", async () => {
+    mockFetchOnce({ ok: false });
+
     render(
       <AuthGate>
         <p>Protected content</p>
@@ -21,31 +31,41 @@ describe("AuthGate", () => {
     expect(screen.queryByText("Protected content")).not.toBeInTheDocument();
   });
 
-  it("reveals the protected content after submitting any email/password", async () => {
-    const user = userEvent.setup();
+  it("reveals the protected content once the backend confirms a valid session", async () => {
+    mockFetchOnce({ ok: true });
+
     render(
       <AuthGate>
         <p>Protected content</p>
       </AuthGate>,
     );
 
-    await waitFor(() => screen.getByRole("heading", { name: "Sign in" }));
-    await user.type(screen.getByLabelText("Email"), "someone@example.com");
-    await user.type(screen.getByLabelText("Password"), "anything");
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-
-    expect(screen.getByText("Protected content")).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Sign in" })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Protected content")).toBeInTheDocument();
+    });
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/api/me"),
+      expect.objectContaining({ credentials: "include" }),
+    );
   });
 
-  it("skips the login screen on a later render once already authed", async () => {
-    window.localStorage.setItem("prelegal:authed", "true");
+  it("re-checks the session and reveals content after a successful sign-in", async () => {
+    mockFetchOnce({ ok: false }); // initial /api/me check
+    const user = userEvent.setup();
 
     render(
       <AuthGate>
         <p>Protected content</p>
       </AuthGate>,
     );
+    await waitFor(() => screen.getByRole("heading", { name: "Sign in" }));
+
+    mockFetchOnce({ ok: true }); // POST /api/signin
+    mockFetchOnce({ ok: true }); // follow-up /api/me check triggered by the auth-change event
+
+    await user.type(screen.getByLabelText("Email"), "someone@example.com");
+    await user.type(screen.getByLabelText("Password"), "password123");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
       expect(screen.getByText("Protected content")).toBeInTheDocument();

@@ -1,15 +1,37 @@
 "use client";
 
 import { useState } from "react";
-import { setAuthed } from "@/lib/auth";
+import { signIn, signUp } from "@/lib/auth";
+
+type Mode = "signin" | "signup";
 
 export function LoginScreen() {
+  const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  function handleSubmit(event: React.FormEvent) {
+  async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    setAuthed();
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      if (mode === "signup") {
+        await signUp(email, password);
+      } else {
+        await signIn(email, password);
+      }
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Something went wrong.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  function toggleMode() {
+    setMode((current) => (current === "signin" ? "signup" : "signin"));
+    setError(null);
   }
 
   return (
@@ -22,16 +44,18 @@ export function LoginScreen() {
           <p className="font-mono text-[0.6875rem] tracking-[0.15em] text-muted uppercase">
             Prelegal
           </p>
-          <h1 className="mt-2 font-serif text-2xl font-semibold text-ink">Sign in</h1>
+          <h1 className="mt-2 font-serif text-2xl font-semibold text-ink">
+            {mode === "signin" ? "Sign in" : "Create account"}
+          </h1>
           <p className="mt-1 text-sm text-ink-soft">
-            Preview build — any email and password will do.
+            {mode === "signin" ? "Sign in to continue." : "Create an account to get started."}
           </p>
         </div>
 
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium text-ink-soft">Email</span>
           <input
-            type="text"
+            type="email"
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
@@ -44,17 +68,33 @@ export function LoginScreen() {
           <input
             type="password"
             required
+            minLength={8}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             className="rounded-md border border-line bg-paper px-3 py-2 text-sm text-ink focus:border-ink focus:outline-none"
           />
         </label>
 
+        {error && (
+          <p role="alert" className="text-sm text-signal">
+            {error}
+          </p>
+        )}
+
         <button
           type="submit"
-          className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper transition-colors hover:bg-ink-soft"
+          disabled={isSubmitting}
+          className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper transition-colors hover:bg-ink-soft disabled:opacity-60"
         >
-          Continue
+          {isSubmitting ? "Please wait…" : mode === "signin" ? "Continue" : "Create account"}
+        </button>
+
+        <button
+          type="button"
+          onClick={toggleMode}
+          className="text-sm text-ink-soft underline underline-offset-2 hover:text-ink"
+        >
+          {mode === "signin" ? "Don't have an account? Create one" : "Already have an account? Sign in"}
         </button>
       </form>
     </div>

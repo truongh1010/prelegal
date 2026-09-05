@@ -1,9 +1,10 @@
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from openai import OpenAIError
 from pydantic import BaseModel, create_model
 
+from app.core.auth import get_current_user
 from app.core.documents import (
     DocumentSpec,
     build_field_labels,
@@ -12,6 +13,7 @@ from app.core.documents import (
     get_document,
 )
 from app.core.openai_client import client
+from app.models.user import User
 
 router = APIRouter()
 
@@ -80,7 +82,7 @@ def generate_chat_turn(
 
 
 @router.post("/chat")
-def chat(request: ChatRequest) -> ChatTurnResponse:
+def chat(request: ChatRequest, user: User = Depends(get_current_user)) -> ChatTurnResponse:
     document = get_document(request.template)
     if document is None:
         raise HTTPException(status_code=404, detail=f'Unknown template "{request.template}".')

@@ -14,11 +14,11 @@ def mock_parse_returning(message: str, matched_slug: str | None):
     return MagicMock(return_value=completion)
 
 
-def test_opening_turn_has_no_history(client, monkeypatch):
+def test_opening_turn_has_no_history(authed_client, monkeypatch):
     parse_mock = mock_parse_returning("Hi! What kind of document do you need?", None)
     monkeypatch.setattr(discover_module.client.chat.completions, "parse", parse_mock)
 
-    response = client.post("/api/discover", json={"messages": []})
+    response = authed_client.post("/api/discover", json={"messages": []})
 
     assert response.status_code == 200
     assert response.json() == {"message": "Hi! What kind of document do you need?", "matchedSlug": None}
@@ -26,11 +26,11 @@ def test_opening_turn_has_no_history(client, monkeypatch):
     assert any("hasn't started yet" in message["content"] for message in sent_messages)
 
 
-def test_confirmed_match_returns_the_slug(client, monkeypatch):
+def test_confirmed_match_returns_the_slug(authed_client, monkeypatch):
     parse_mock = mock_parse_returning("Let's set up a Cloud Service Agreement.", "csa")
     monkeypatch.setattr(discover_module.client.chat.completions, "parse", parse_mock)
 
-    response = client.post(
+    response = authed_client.post(
         "/api/discover",
         json={
             "messages": [
@@ -44,12 +44,12 @@ def test_confirmed_match_returns_the_slug(client, monkeypatch):
     assert response.json()["matchedSlug"] == "csa"
 
 
-def test_hallucinated_slug_is_normalized_to_none(client, monkeypatch):
+def test_hallucinated_slug_is_normalized_to_none(authed_client, monkeypatch):
     """Defensive: an unsupported/hallucinated slug should never be forwarded to the frontend."""
     parse_mock = mock_parse_returning("Here's a match.", "not-a-real-slug")
     monkeypatch.setattr(discover_module.client.chat.completions, "parse", parse_mock)
 
-    response = client.post("/api/discover", json={"messages": []})
+    response = authed_client.post("/api/discover", json={"messages": []})
 
     assert response.status_code == 200
     assert response.json()["matchedSlug"] is None
@@ -62,12 +62,12 @@ def test_system_prompt_lists_every_discoverable_document():
         assert name in prompt
 
 
-def test_openai_failure_returns_502(client, monkeypatch):
+def test_openai_failure_returns_502(authed_client, monkeypatch):
     def raise_error(*args, **kwargs):
         raise APIConnectionError(request=MagicMock())
 
     monkeypatch.setattr(discover_module.client.chat.completions, "parse", raise_error)
 
-    response = client.post("/api/discover", json={"messages": []})
+    response = authed_client.post("/api/discover", json={"messages": []})
 
     assert response.status_code == 502
