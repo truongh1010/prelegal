@@ -56,7 +56,7 @@ export function TemplateCreator({
           <p className="mt-1 text-sm text-muted">{template.description}</p>
         </div>
 
-        <ChatPanel fields={values} onFieldsChange={setValues} />
+        <ChatPanel template={template.slug} fields={values} onFieldsChange={setValues} />
 
         <button
           type="button"

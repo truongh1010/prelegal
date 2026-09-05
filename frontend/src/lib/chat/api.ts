@@ -16,13 +16,14 @@ export interface ChatTurnResult {
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 export async function sendChatTurn(
+  template: string,
   messages: ChatMessage[],
   fields: TemplateValues,
 ): Promise<ChatTurnResult> {
   const response = await fetch(`${API_BASE}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages, fields }),
+    body: JSON.stringify({ template, messages, fields }),
   });
 
   if (!response.ok) {
@@ -35,4 +36,23 @@ export async function sendChatTurn(
   ) as TemplateValues;
 
   return { message: data.message, fields: cleanedFields };
+}
+
+export interface DiscoverTurnResult {
+  message: string;
+  matchedSlug: string | null;
+}
+
+export async function sendDiscoverTurn(messages: ChatMessage[]): Promise<DiscoverTurnResult> {
+  const response = await fetch(`${API_BASE}/api/discover`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Discover request failed with status ${response.status}`);
+  }
+
+  return (await response.json()) as DiscoverTurnResult;
 }

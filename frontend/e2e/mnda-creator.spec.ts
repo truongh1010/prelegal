@@ -1,13 +1,28 @@
 import fs from "node:fs";
 import { expect, test } from "@playwright/test";
-import { skipLogin } from "./helpers";
+import { mockChat, skipLogin } from "./helpers";
+
+const filledFields = {
+  party1Name: "Acme Inc.",
+  party1Address: "1 Main St, Springfield",
+  party2Name: "Globex Corp.",
+  party2Address: null,
+  effectiveDate: "2026-01-15",
+  purpose: "evaluating a potential partnership",
+  mndaTerm: "2 years",
+  confidentialityTerm: "3 years",
+  governingLaw: "Delaware",
+  jurisdiction: "Wilmington, Delaware",
+};
 
 test.beforeEach(async ({ page }) => {
   await skipLogin(page);
-  await page.goto("/create/mutual-nda/");
 });
 
 test("shows blank placeholders before anything is filled in", async ({ page }) => {
+  await mockChat(page, [{ message: "Hi! Who are the two parties to this NDA?", fields: {} }]);
+  await page.goto("/create/mutual-nda/");
+
   const preview = page.getByTestId("document-preview");
   await expect(preview.getByText("party 1 name")).toBeVisible();
   await expect(preview.getByText("party 2 name")).toBeVisible();
@@ -15,18 +30,16 @@ test("shows blank placeholders before anything is filled in", async ({ page }) =
   await expect(preview.locator(".filled-value--empty").first()).toBeVisible();
 });
 
-test("the live preview updates as the form is filled in", async ({ page }) => {
-  const preview = page.getByTestId("document-preview");
+test("the live preview updates as the AI extracts fields from chat", async ({ page }) => {
+  await mockChat(page, [
+    { message: "Hi! Who are the two parties to this NDA?", fields: {} },
+    { message: "Got it, thanks - your document is ready to review.", fields: filledFields },
+  ]);
+  await page.goto("/create/mutual-nda/");
 
-  await page.getByLabel("Party 1 Name").fill("Acme Inc.");
-  await page.getByLabel("Party 1 Address").fill("1 Main St, Springfield");
-  await page.getByLabel("Party 2 Name").fill("Globex Corp.");
-  await page.getByLabel("Effective Date").fill("2026-01-15");
-  await page.getByLabel("Purpose").fill("evaluating a potential partnership");
-  await page.getByLabel("MNDA Term").fill("2 years");
-  await page.getByLabel("Term of Confidentiality").fill("3 years");
-  await page.getByLabel("Governing Law").fill("Delaware");
-  await page.getByLabel("Jurisdiction").fill("Wilmington, Delaware");
+  const preview = page.getByTestId("document-preview");
+  await page.getByLabel("Message").fill("Acme Inc. (1 Main St, Springfield) and Globex Corp.");
+  await page.getByRole("button", { name: /send/i }).click();
 
   await expect(preview.getByText("Acme Inc.")).toBeVisible();
   await expect(preview.getByText("1 Main St, Springfield")).toBeVisible();
@@ -40,10 +53,32 @@ test("the live preview updates as the form is filled in", async ({ page }) => {
   await expect(preview.locator(".filled-value--empty")).toHaveCount(0);
 });
 
-test("a markdown-injection payload renders as inert text, never a real link", async ({ page }) => {
-  const preview = page.getByTestId("document-preview");
+test("focus returns to the message input after the assistant replies", async ({ page }) => {
+  await mockChat(page, [
+    { message: "Hi! Who are the two parties to this NDA?", fields: {} },
+    { message: "Got it, and what's the effective date?", fields: { party1Name: "Acme Inc." } },
+  ]);
+  await page.goto("/create/mutual-nda/");
 
-  await page.getByLabel("Purpose").fill("[click here](javascript:alert(document.cookie))");
+  const input = page.getByLabel("Message");
+  await input.fill("Acme Inc. and Globex Corp.");
+  await page.getByRole("button", { name: /send/i }).click();
+
+  await expect(page.getByText("Got it, and what's the effective date?")).toBeVisible();
+  await expect(input).toBeFocused();
+});
+
+test("a markdown-injection payload renders as inert text, never a real link", async ({ page }) => {
+  const malicious = "[click here](javascript:alert(document.cookie))";
+  await mockChat(page, [
+    { message: "Hi! Who are the two parties to this NDA?", fields: {} },
+    { message: "Got it, thanks.", fields: { purpose: malicious } },
+  ]);
+  await page.goto("/create/mutual-nda/");
+
+  const preview = page.getByTestId("document-preview");
+  await page.getByLabel("Message").fill("It's for " + malicious);
+  await page.getByRole("button", { name: /send/i }).click();
 
   // "Purpose" is referenced three times in the template body, so every occurrence
   // should render the same inert payload.
@@ -54,9 +89,18 @@ test("a markdown-injection payload renders as inert text, never a real link", as
 });
 
 test("Download PDF saves a real PDF file containing the filled-in details", async ({ page }) => {
-  await page.getByLabel("Party 1 Name").fill("Acme Inc.");
-  await page.getByLabel("Party 2 Name").fill("Globex Corp.");
-  await page.getByLabel("Purpose").fill("evaluating a potential partnership");
+  await mockChat(page, [
+    { message: "Hi! Who are the two parties to this NDA?", fields: {} },
+    {
+      message: "Got it, thanks.",
+      fields: { party1Name: "Acme Inc.", party2Name: "Globex Corp.", purpose: "evaluating a potential partnership" },
+    },
+  ]);
+  await page.goto("/create/mutual-nda/");
+
+  await page.getByLabel("Message").fill("Acme Inc. and Globex Corp., evaluating a potential partnership");
+  await page.getByRole("button", { name: /send/i }).click();
+  await expect(page.getByText("Got it, thanks.")).toBeVisible();
 
   const [download] = await Promise.all([
     page.waitForEvent("download"),

@@ -5,16 +5,18 @@ import type { TemplateValues } from "@/lib/templates/types";
 import { sendChatTurn, type ChatMessage } from "@/lib/chat/api";
 
 interface ChatPanelProps {
+  template: string;
   fields: TemplateValues;
   onFieldsChange: (fields: TemplateValues) => void;
 }
 
-export function ChatPanel({ fields, onFieldsChange }: ChatPanelProps) {
+export function ChatPanel({ template, fields, onFieldsChange }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   // Starts true: the opening-turn effect below always fires immediately on mount.
   const [isSending, setIsSending] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Lets handlers read the latest known fields without re-running the opening-turn
   // effect or the send handler's closure every time the parent's values change.
@@ -23,9 +25,15 @@ export function ChatPanel({ fields, onFieldsChange }: ChatPanelProps) {
     fieldsRef.current = fields;
   }, [fields]);
 
+  // The input is disabled while sending, which browsers respond to by blurring it -
+  // return focus once it's enabled again so the user can keep typing without a click.
+  useEffect(() => {
+    if (!isSending) inputRef.current?.focus();
+  }, [isSending]);
+
   useEffect(() => {
     let cancelled = false;
-    sendChatTurn([], fieldsRef.current)
+    sendChatTurn(template, [], fieldsRef.current)
       .then((result) => {
         if (cancelled) return;
         setMessages([{ role: "assistant", content: result.message }]);
@@ -58,7 +66,7 @@ export function ChatPanel({ fields, onFieldsChange }: ChatPanelProps) {
     setIsSending(true);
 
     try {
-      const result = await sendChatTurn(nextMessages, fieldsRef.current);
+      const result = await sendChatTurn(template, nextMessages, fieldsRef.current);
       setMessages([...nextMessages, { role: "assistant", content: result.message }]);
       if (Object.keys(result.fields).length > 0) {
         onFieldsChange({ ...fieldsRef.current, ...result.fields });
@@ -98,6 +106,7 @@ export function ChatPanel({ fields, onFieldsChange }: ChatPanelProps) {
 
       <form onSubmit={handleSend} className="flex gap-2">
         <input
+          ref={inputRef}
           type="text"
           value={input}
           onChange={(event) => setInput(event.target.value)}

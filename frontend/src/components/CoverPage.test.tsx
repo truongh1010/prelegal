@@ -18,8 +18,19 @@ const template: TemplateDefinition = {
       label: "Effective Date",
       type: "date",
       group: "terms",
-      coverpageLabel: "Effective Date",
+      bodyLabels: [{ label: "Effective Date" }],
     },
+  ],
+};
+
+const roleBasedTemplate: TemplateDefinition = {
+  slug: "csa",
+  filename: "CSA.md",
+  name: "Cloud Service Agreement",
+  description: "Test description",
+  fields: [
+    { key: "providerName", label: "Provider Name", type: "text", group: "party1" },
+    { key: "customerName", label: "Customer Name", type: "text", group: "party2" },
   ],
 };
 
@@ -56,5 +67,14 @@ describe("CoverPage", () => {
 
     expect(screen.getByText("Acme Inc.")).toBeInTheDocument();
     expect(screen.queryByText("1 Main St")).not.toBeInTheDocument();
+  });
+
+  it("derives the party caption from the field's own role label, not a hardcoded Party 1/2", () => {
+    render(<CoverPage template={roleBasedTemplate} values={{}} />);
+
+    expect(screen.getByText("Provider")).toBeInTheDocument();
+    expect(screen.getByText("Customer")).toBeInTheDocument();
+    expect(screen.getByText("provider name")).toBeInTheDocument();
+    expect(screen.getByText("customer name")).toBeInTheDocument();
   });
 });

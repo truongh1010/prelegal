@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getCatalogWithStatus } from "@/lib/templates/catalog";
+import { DiscoverChat } from "@/components/DiscoverChat";
 
 export default function Home() {
   const templates = getCatalogWithStatus();
@@ -18,6 +19,8 @@ export default function Home() {
           live, word for word, then download it.
         </p>
       </div>
+
+      <DiscoverChat />
 
       <ul className="flex flex-col divide-y divide-line rounded-lg border border-line bg-paper">
         {templates.map((template) => (

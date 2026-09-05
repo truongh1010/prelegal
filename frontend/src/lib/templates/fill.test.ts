@@ -4,15 +4,28 @@ import { fillTemplateBody } from "./fill";
 import type { TemplateField } from "./types";
 
 const fields: TemplateField[] = [
-  { key: "purpose", label: "Purpose", type: "textarea", group: "terms", coverpageLabel: "Purpose" },
+  {
+    key: "purpose",
+    label: "Purpose",
+    type: "textarea",
+    group: "terms",
+    bodyLabels: [{ label: "Purpose" }],
+  },
   {
     key: "governingLaw",
     label: "Governing Law",
     type: "text",
     group: "terms",
-    coverpageLabel: "Governing Law",
+    bodyLabels: [{ label: "Governing Law" }],
   },
   { key: "party1Name", label: "Party 1 Name", type: "text", group: "party1" },
+  {
+    key: "providerName",
+    label: "Provider Name",
+    type: "text",
+    group: "party2",
+    bodyLabels: [{ label: "Provider" }, { label: "Provider’s", suffix: "’s" }],
+  },
 ];
 
 describe("fillTemplateBody", () => {
@@ -43,12 +56,35 @@ describe("fillTemplateBody", () => {
     expect(result).toContain("filled-value--empty");
   });
 
-  it("only substitutes placeholders for fields that declare a coverpageLabel", () => {
+  it("only substitutes placeholders for fields that declare bodyLabels", () => {
     const raw = "No placeholders here, just party1Name in values.";
 
     const result = fillTemplateBody(raw, fields, { party1Name: "Acme Inc." });
 
     expect(result).toBe(raw);
+  });
+
+  it("fills placeholders that use a different span class, like keyterms_link", () => {
+    const raw = 'Provider is <span class="keyterms_link">Governing Law</span>.';
+
+    const result = fillTemplateBody(raw, fields, { governingLaw: "Delaware" });
+
+    expect(result).toContain("Delaware");
+    expect(result).not.toContain("keyterms_link");
+  });
+
+  it("appends a possessive suffix to a filled value without adding it to the blank placeholder", () => {
+    const raw =
+      '<span class="coverpage_link">Provider</span> and ' +
+      '<span class="coverpage_link">Provider’s</span> obligations.';
+
+    const filled = fillTemplateBody(raw, fields, { providerName: "Acme Inc." });
+    expect(filled).toContain('<span class="filled-value">Acme Inc.</span> and');
+    expect(filled).toContain('<span class="filled-value">Acme Inc.’s</span> obligations');
+
+    const blank = fillTemplateBody(raw, fields, {});
+    expect(blank).toContain("Provider’s");
+    expect(blank).not.toContain("Provider’s’s");
   });
 
   it("does not touch spans for labels no field declares", () => {

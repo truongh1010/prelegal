@@ -8,11 +8,11 @@ function formatDate(value: string): string | undefined {
 }
 
 function PartyBlock({
-  label,
+  fallbackLabel,
   fields,
   values,
 }: {
-  label: string;
+  fallbackLabel: string;
   fields: TemplateField[];
   values: TemplateValues;
 }) {
@@ -20,6 +20,9 @@ function PartyBlock({
   const addressField = fields.find((field) => field.type === "textarea");
   const name = (nameField ? values[nameField.key] : "")?.trim();
   const address = addressField ? values[addressField.key]?.trim() : undefined;
+  // The party's role (e.g. "Provider", "Customer") comes from its name field's own
+  // label, so this generalizes beyond Mutual NDA's literal "Party 1"/"Party 2".
+  const label = nameField ? nameField.label.replace(/ Name$/, "") : fallbackLabel;
 
   return (
     <div>
@@ -53,8 +56,8 @@ export function CoverPage({
         </p>
       ))}
       <div className="cover-page__parties">
-        <PartyBlock label="Party 1" fields={party1Fields} values={values} />
-        <PartyBlock label="Party 2" fields={party2Fields} values={values} />
+        <PartyBlock fallbackLabel="Party 1" fields={party1Fields} values={values} />
+        <PartyBlock fallbackLabel="Party 2" fields={party2Fields} values={values} />
       </div>
     </div>
   );

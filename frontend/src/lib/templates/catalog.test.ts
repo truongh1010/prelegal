@@ -12,13 +12,12 @@ describe("getCatalogWithStatus", () => {
     expect(templates.map((t) => t.filename)).toContain("Mutual-NDA.md");
   });
 
-  it("flags only templates with a registered field schema", () => {
+  it("flags every catalog template with its registered field schema slug", () => {
     const templates = getCatalogWithStatus();
     const mnda = templates.find((t) => t.filename === "Mutual-NDA.md");
-    const others = templates.filter((t) => t.filename !== "Mutual-NDA.md");
 
     expect(mnda?.slug).toBe("mutual-nda");
-    expect(others.every((t) => t.slug === undefined)).toBe(true);
+    expect(templates.every((t) => t.slug !== undefined)).toBe(true);
   });
 });
 

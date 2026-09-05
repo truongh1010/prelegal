@@ -17,10 +17,13 @@ function escapeMarkdown(value: string): string {
 }
 
 /**
- * Replaces every `<span class="coverpage_link">Label</span>` placeholder in the raw
- * template markdown with the corresponding field's filled-in value (or a bracketed
- * placeholder if left blank). Works for any template that follows the Common Paper
- * `coverpage_link` convention, keyed off each field's `coverpageLabel`.
+ * Replaces every `<span class="*_link">Label</span>` placeholder in the raw template
+ * markdown with the corresponding field's filled-in value (or the placeholder's own
+ * label if left blank). Works for any template that follows the Common Paper
+ * "Variable" convention, keyed off each field's `bodyLabels`. The class name itself
+ * (coverpage_link, keyterms_link, orderform_link, businessterms_link, sow_link) is
+ * matched generically since it varies by document and by which kind of cover page
+ * the variable belongs on, not by what the variable means.
  */
 export function fillTemplateBody(
   rawMarkdown: string,
@@ -29,16 +32,20 @@ export function fillTemplateBody(
 ): string {
   let filled = rawMarkdown;
   for (const field of fields) {
-    if (!field.coverpageLabel) continue;
+    if (!field.bodyLabels) continue;
     const value = values[field.key]?.trim();
-    const display = value ? escapeHtml(escapeMarkdown(value)) : escapeHtml(field.label);
-    const className = value ? "filled-value" : "filled-value filled-value--empty";
-    const replacement = `<span class="${className}">${display}</span>`;
-    const pattern = new RegExp(
-      `<span class="coverpage_link">${escapeRegExp(field.coverpageLabel)}</span>`,
-      "g",
-    );
-    filled = filled.replace(pattern, replacement);
+    for (const { label, suffix } of field.bodyLabels) {
+      const display = value
+        ? escapeHtml(escapeMarkdown(value)) + (suffix ?? "")
+        : escapeHtml(label);
+      const className = value ? "filled-value" : "filled-value filled-value--empty";
+      const replacement = `<span class="${className}">${display}</span>`;
+      const pattern = new RegExp(
+        `<span class="[a-z]+_link">${escapeRegExp(label)}</span>`,
+        "g",
+      );
+      filled = filled.replace(pattern, replacement);
+    }
   }
   return filled;
 }

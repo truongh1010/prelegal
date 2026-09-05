@@ -39,7 +39,7 @@ const template: TemplateDefinition = {
       label: "Purpose",
       type: "textarea",
       group: "terms",
-      coverpageLabel: "Purpose",
+      bodyLabels: [{ label: "Purpose" }],
     },
   ],
 };
