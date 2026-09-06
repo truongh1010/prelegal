@@ -19,12 +19,13 @@ export async function sendChatTurn(
   template: string,
   messages: ChatMessage[],
   fields: TemplateValues,
+  documentId: number,
 ): Promise<ChatTurnResult> {
   const response = await fetch(`${API_BASE}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ template, messages, fields }),
+    body: JSON.stringify({ template, document_id: documentId, messages, fields }),
   });
 
   if (!response.ok) {

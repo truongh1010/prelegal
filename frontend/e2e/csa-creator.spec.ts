@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { mockChat, skipLogin } from "./helpers";
+import { mockChat, mockCreateDocument, skipLogin } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await skipLogin(page);
+  await mockCreateDocument(page);
 });
 
 test("a non-NDA document fills in via chat using its own field schema and party roles", async ({ page }) => {

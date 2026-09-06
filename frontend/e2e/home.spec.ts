@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { mockDiscover, skipLogin } from "./helpers";
+import { mockCreateDocument, mockDiscover, skipLogin } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await skipLogin(page);
+  await mockCreateDocument(page);
 });
 
 test("lists every catalog template, all enabled for creation", async ({ page }) => {
@@ -39,7 +40,7 @@ test("clicking Create navigates to the Mutual NDA creator", async ({ page }) => 
     .locator("li", { hasText: "Mutual Non-Disclosure Agreement" })
     .getByRole("link", { name: "Create" })
     .click();
-  await expect(page).toHaveURL(/\/create\/mutual-nda\/$/);
+  await expect(page).toHaveURL(/\/create\/mutual-nda\/(\?.*)?$/);
   await expect(
     page.getByRole("heading", { level: 1, name: "Mutual Non-Disclosure Agreement" }),
   ).toBeVisible();
@@ -58,7 +59,7 @@ test("the discovery chat routes to the matched document once the user confirms",
   await page.getByPlaceholder(/i need to license/i).fill("I need to sell cloud access to a customer");
   await page.getByRole("button", { name: /send/i }).click();
 
-  await expect(page).toHaveURL(/\/create\/csa\/$/);
+  await expect(page).toHaveURL(/\/create\/csa\/(\?.*)?$/);
 });
 
 test("the discovery chat explains an unsupported request without navigating away", async ({ page }) => {

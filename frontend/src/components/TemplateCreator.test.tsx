@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { TemplateCreator } from "./TemplateCreator";
 import type { TemplateDefinition } from "@/lib/templates/types";
 import { sendChatTurn } from "@/lib/chat/api";
+import { createDocument, getDocument } from "@/lib/documents/api";
 
 const htmlMock = vi.fn().mockResolvedValue(undefined);
 const saveMock = vi.fn();
@@ -19,12 +20,31 @@ vi.mock("@/lib/chat/api", () => ({
   sendChatTurn: vi.fn(),
 }));
 
+vi.mock("@/lib/documents/api", () => ({
+  createDocument: vi.fn(),
+  getDocument: vi.fn(),
+}));
+
 const sendChatTurnMock = vi.mocked(sendChatTurn);
+const createDocumentMock = vi.mocked(createDocument);
+const getDocumentMock = vi.mocked(getDocument);
 
 beforeEach(() => {
+  window.history.replaceState(null, "", "/");
   sendChatTurnMock.mockReset();
   // The opening turn fired on mount; individual tests layer further responses on top.
   sendChatTurnMock.mockResolvedValue({ message: "Who are the parties?", fields: {} });
+  createDocumentMock.mockReset();
+  createDocumentMock.mockResolvedValue({
+    id: 1,
+    template: "mutual-nda",
+    templateName: "Mutual Non-Disclosure Agreement",
+    fields: {},
+    messages: [],
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+  });
+  getDocumentMock.mockReset();
 });
 
 const template: TemplateDefinition = {
@@ -47,9 +67,9 @@ const template: TemplateDefinition = {
 const rawContent =
   'The parties agree to the <span class="coverpage_link">Purpose</span> described above.';
 
-function renderPreview(...args: Parameters<typeof render>) {
+async function renderPreview(...args: Parameters<typeof render>) {
   render(...args);
-  const element = screen.getByTestId("document-preview");
+  const element = await screen.findByTestId("document-preview");
   return Object.assign(within(element), { element });
 }
 
@@ -62,7 +82,7 @@ async function sendMessage(user: ReturnType<typeof userEvent.setup>, text: strin
 describe("TemplateCreator", () => {
   it("shows a blank placeholder for the Purpose field until the AI extracts it", async () => {
     const user = userEvent.setup();
-    const preview = renderPreview(<TemplateCreator template={template} rawContent={rawContent} />);
+    const preview = await renderPreview(<TemplateCreator template={template} rawContent={rawContent} />);
 
     await waitFor(() => screen.getByText("Who are the parties?"));
     expect(preview.getByText("Purpose", { selector: ".filled-value--empty" })).toBeInTheDocument();
@@ -81,7 +101,7 @@ describe("TemplateCreator", () => {
 
   it("neutralizes a markdown-injection payload extracted from chat instead of rendering a real link", async () => {
     const user = userEvent.setup();
-    const preview = renderPreview(<TemplateCreator template={template} rawContent={rawContent} />);
+    const preview = await renderPreview(<TemplateCreator template={template} rawContent={rawContent} />);
 
     await waitFor(() => screen.getByText("Who are the parties?"));
 
@@ -128,5 +148,37 @@ describe("TemplateCreator", () => {
 
     resolveHtml();
     await waitFor(() => expect(screen.getByRole("button", { name: /download pdf/i })).toBeEnabled());
+  });
+
+  it("creates a new document on mount and records its id in the URL", async () => {
+    render(<TemplateCreator template={template} rawContent={rawContent} />);
+
+    await waitFor(() => expect(createDocumentMock).toHaveBeenCalledWith("mutual-nda"));
+    await waitFor(() => expect(window.location.search).toBe("?documentId=1"));
+  });
+
+  it("resumes a saved document instead of starting a fresh one", async () => {
+    window.history.replaceState(null, "", "/?documentId=42");
+    getDocumentMock.mockResolvedValueOnce({
+      id: 42,
+      template: "mutual-nda",
+      templateName: "Mutual Non-Disclosure Agreement",
+      fields: { party1Name: "Acme Inc." },
+      messages: [
+        { role: "assistant", content: "Who are the parties?" },
+        { role: "user", content: "Acme Inc." },
+      ],
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+    });
+
+    render(<TemplateCreator template={template} rawContent={rawContent} />);
+
+    await waitFor(() => expect(getDocumentMock).toHaveBeenCalledWith(42));
+    const chatLog = await screen.findByRole("log");
+    expect(within(chatLog).getByText("Acme Inc.")).toBeInTheDocument();
+    expect(createDocumentMock).not.toHaveBeenCalled();
+    // The opening-turn fetch is skipped since there's already history to show.
+    expect(sendChatTurnMock).not.toHaveBeenCalled();
   });
 });

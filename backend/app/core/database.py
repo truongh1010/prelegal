@@ -13,6 +13,7 @@ def init_db() -> None:
     since the engine's pooled connections would otherwise outlive the deleted file."""
     settings.database_path.parent.mkdir(parents=True, exist_ok=True)
 
+    from app.models.document import Document  # noqa: F401  (same, for saved documents)
     from app.models.user import User  # noqa: F401  (registers the table with SQLModel.metadata)
     from app.models.user_session import UserSession  # noqa: F401  (same, for sessions)
 

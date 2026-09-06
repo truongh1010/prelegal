@@ -1,10 +1,13 @@
+from datetime import datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from openai import OpenAIError
 from pydantic import BaseModel, create_model
+from sqlmodel import Session as DbSession
 
 from app.core.auth import get_current_user
+from app.core.database import get_session
 from app.core.documents import (
     DocumentSpec,
     build_field_labels,
@@ -13,6 +16,7 @@ from app.core.documents import (
     get_document,
 )
 from app.core.openai_client import client
+from app.models.document import Document
 from app.models.user import User
 
 router = APIRouter()
@@ -27,6 +31,7 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     template: str
+    document_id: int
     messages: list[ChatMessage] = []
     fields: dict[str, str | None] = {}
 
@@ -82,11 +87,33 @@ def generate_chat_turn(
 
 
 @router.post("/chat")
-def chat(request: ChatRequest, user: User = Depends(get_current_user)) -> ChatTurnResponse:
+def chat(
+    request: ChatRequest,
+    user: User = Depends(get_current_user),
+    db: DbSession = Depends(get_session),
+) -> ChatTurnResponse:
     document = get_document(request.template)
     if document is None:
         raise HTTPException(status_code=404, detail=f'Unknown template "{request.template}".')
+
+    stored_document = db.get(Document, request.document_id)
+    if stored_document is None or stored_document.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Document not found.")
+
     try:
-        return generate_chat_turn(document, request.messages, request.fields)
+        result = generate_chat_turn(document, request.messages, request.fields)
     except OpenAIError as error:
         raise HTTPException(status_code=502, detail="The AI service is unavailable.") from error
+
+    stored_document.fields = {
+        **request.fields,
+        **{key: value for key, value in result.fields.items() if value is not None},
+    }
+    stored_document.messages = [message.model_dump() for message in request.messages] + [
+        {"role": "assistant", "content": result.message}
+    ]
+    stored_document.updated_at = datetime.now(timezone.utc)
+    db.add(stored_document)
+    db.commit()
+
+    return result

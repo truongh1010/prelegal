@@ -16,3 +16,11 @@ def authed_client(client):
     that exercise routes gated behind get_current_user (e.g. chat, discover)."""
     client.post("/api/signup", json={"email": "tester@example.com", "password": "password123"})
     return client
+
+
+@pytest.fixture()
+def document_id(authed_client):
+    """A saved document belonging to authed_client's user, for tests that call
+    /api/chat (which now requires an existing document to save turns into)."""
+    response = authed_client.post("/api/documents", json={"template": "mutual-nda"})
+    return response.json()["id"]

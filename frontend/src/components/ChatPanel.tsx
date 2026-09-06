@@ -8,13 +8,23 @@ interface ChatPanelProps {
   template: string;
   fields: TemplateValues;
   onFieldsChange: (fields: TemplateValues) => void;
+  documentId: number;
+  /** Prior messages when resuming a saved document. An opening turn is only
+   * fetched when this is empty (a brand-new document). */
+  initialMessages?: ChatMessage[];
 }
 
-export function ChatPanel({ template, fields, onFieldsChange }: ChatPanelProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+export function ChatPanel({
+  template,
+  fields,
+  onFieldsChange,
+  documentId,
+  initialMessages = [],
+}: ChatPanelProps) {
+  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = useState("");
-  // Starts true: the opening-turn effect below always fires immediately on mount.
-  const [isSending, setIsSending] = useState(true);
+  // Starts true only when the opening-turn effect below is about to fire.
+  const [isSending, setIsSending] = useState(initialMessages.length === 0);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -32,8 +42,9 @@ export function ChatPanel({ template, fields, onFieldsChange }: ChatPanelProps) 
   }, [isSending]);
 
   useEffect(() => {
+    if (initialMessages.length > 0) return; // resuming a saved document - nothing to fetch
     let cancelled = false;
-    sendChatTurn(template, [], fieldsRef.current)
+    sendChatTurn(template, [], fieldsRef.current, documentId)
       .then((result) => {
         if (cancelled) return;
         setMessages([{ role: "assistant", content: result.message }]);
@@ -66,7 +77,7 @@ export function ChatPanel({ template, fields, onFieldsChange }: ChatPanelProps) 
     setIsSending(true);
 
     try {
-      const result = await sendChatTurn(template, nextMessages, fieldsRef.current);
+      const result = await sendChatTurn(template, nextMessages, fieldsRef.current, documentId);
       setMessages([...nextMessages, { role: "assistant", content: result.message }]);
       if (Object.keys(result.fields).length > 0) {
         onFieldsChange({ ...fieldsRef.current, ...result.fields });

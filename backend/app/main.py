@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import auth, chat, discover, health
+from app.api.routes import auth, chat, discover, documents, health
 from app.core.config import settings
 from app.core.database import init_db
 
@@ -29,6 +29,7 @@ app.include_router(health.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
 app.include_router(discover.router, prefix="/api")
+app.include_router(documents.router, prefix="/api")
 
 # Mounted last so it never shadows the /api/* routes above. Only present once the
 # frontend has been statically exported into this directory (e.g. by the Docker

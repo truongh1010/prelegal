@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { expect, test } from "@playwright/test";
-import { mockChat, skipLogin } from "./helpers";
+import { mockChat, mockCreateDocument, skipLogin } from "./helpers";
 
 const filledFields = {
   party1Name: "Acme Inc.",
@@ -17,6 +17,7 @@ const filledFields = {
 
 test.beforeEach(async ({ page }) => {
   await skipLogin(page);
+  await mockCreateDocument(page);
 });
 
 test("shows blank placeholders before anything is filled in", async ({ page }) => {

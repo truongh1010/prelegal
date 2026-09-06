@@ -12,6 +12,12 @@ export function SiteHeader() {
           Prelegal
         </Link>
         <div className="flex items-center gap-4">
+          <Link
+            href="/documents"
+            className="font-mono text-[0.6875rem] tracking-[0.1em] text-muted uppercase transition-colors hover:text-ink-soft"
+          >
+            My Documents
+          </Link>
           <span className="font-mono text-[0.6875rem] tracking-[0.1em] text-muted uppercase">
             Common Paper templates
           </span>

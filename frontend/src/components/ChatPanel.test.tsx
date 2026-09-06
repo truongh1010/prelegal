@@ -21,12 +21,12 @@ describe("ChatPanel", () => {
       fields: {},
     });
 
-    render(<ChatPanel template="mutual-nda" fields={{}} onFieldsChange={vi.fn()} />);
+    render(<ChatPanel template="mutual-nda" fields={{}} onFieldsChange={vi.fn()} documentId={1} />);
 
     await waitFor(() => {
       expect(screen.getByText("Hi! Who are the two parties to this NDA?")).toBeInTheDocument();
     });
-    expect(sendChatTurnMock).toHaveBeenCalledWith("mutual-nda", [], {});
+    expect(sendChatTurnMock).toHaveBeenCalledWith("mutual-nda", [], {}, 1);
   });
 
   it("sends the user's message and merges extracted fields into the parent's values", async () => {
@@ -34,7 +34,9 @@ describe("ChatPanel", () => {
     const onFieldsChange = vi.fn();
     const user = userEvent.setup();
 
-    render(<ChatPanel template="mutual-nda" fields={{}} onFieldsChange={onFieldsChange} />);
+    render(
+      <ChatPanel template="mutual-nda" fields={{}} onFieldsChange={onFieldsChange} documentId={1} />,
+    );
     await waitFor(() => expect(screen.getByText("Who are the parties?")).toBeInTheDocument());
 
     sendChatTurnMock.mockResolvedValueOnce({
@@ -50,13 +52,22 @@ describe("ChatPanel", () => {
     });
     expect(screen.getByText("Acme Inc. and Globex Corp.")).toBeInTheDocument();
     expect(onFieldsChange).toHaveBeenCalledWith({ party1Name: "Acme Inc." });
+    expect(sendChatTurnMock).toHaveBeenLastCalledWith(
+      "mutual-nda",
+      [
+        { role: "assistant", content: "Who are the parties?" },
+        { role: "user", content: "Acme Inc. and Globex Corp." },
+      ],
+      {},
+      1,
+    );
   });
 
   it("returns focus to the message input after the assistant responds", async () => {
     sendChatTurnMock.mockResolvedValueOnce({ message: "Who are the parties?", fields: {} });
     const user = userEvent.setup();
 
-    render(<ChatPanel template="mutual-nda" fields={{}} onFieldsChange={vi.fn()} />);
+    render(<ChatPanel template="mutual-nda" fields={{}} onFieldsChange={vi.fn()} documentId={1} />);
     await waitFor(() => expect(screen.getByText("Who are the parties?")).toBeInTheDocument());
 
     sendChatTurnMock.mockResolvedValueOnce({
@@ -76,10 +87,29 @@ describe("ChatPanel", () => {
   it("shows an error message when the chat request fails", async () => {
     sendChatTurnMock.mockRejectedValueOnce(new Error("network error"));
 
-    render(<ChatPanel template="mutual-nda" fields={{}} onFieldsChange={vi.fn()} />);
+    render(<ChatPanel template="mutual-nda" fields={{}} onFieldsChange={vi.fn()} documentId={1} />);
 
     await waitFor(() => {
       expect(screen.getByText(/couldn't reach the assistant/i)).toBeInTheDocument();
     });
+  });
+
+  it("resumes with prior messages instead of fetching a new opening turn", () => {
+    render(
+      <ChatPanel
+        template="mutual-nda"
+        fields={{ party1Name: "Acme Inc." }}
+        onFieldsChange={vi.fn()}
+        documentId={1}
+        initialMessages={[
+          { role: "assistant", content: "Who are the parties?" },
+          { role: "user", content: "Acme Inc." },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Who are the parties?")).toBeInTheDocument();
+    expect(screen.getByText("Acme Inc.")).toBeInTheDocument();
+    expect(sendChatTurnMock).not.toHaveBeenCalled();
   });
 });

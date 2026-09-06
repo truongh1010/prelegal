@@ -40,3 +40,28 @@ export async function mockDiscover(
     await route.fulfill({ json: body });
   });
 }
+
+/** Mocks POST /api/documents (creating a fresh document) with an incrementing
+ * id, standing in for the backend since the e2e webServer has no live one.
+ * Every /create/[slug] visit creates a document on mount, so any spec that
+ * reaches that page needs this mocked even if it doesn't otherwise care about
+ * saved documents. */
+export async function mockCreateDocument(page: Page) {
+  let nextId = 1;
+  await page.route("**/api/documents", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    const id = nextId++;
+    await route.fulfill({
+      status: 201,
+      json: {
+        id,
+        template: "mocked",
+        template_name: "Mocked",
+        fields: {},
+        messages: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    });
+  });
+}
