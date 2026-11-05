@@ -3,7 +3,7 @@ import path from "node:path";
 import { TEMPLATE_REGISTRY } from "./registry";
 import type { CatalogEntry, TemplateDefinition } from "./types";
 
-// The frontend app treats the repo-root templates dataset (added in PL-2) as its
+// The frontend app treats the repo-root templates dataset as its
 // single source of truth rather than duplicating it into this app.
 const REPO_ROOT = path.join(process.cwd(), "..");
 

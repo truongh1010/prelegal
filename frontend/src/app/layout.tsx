@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Newsreader } from "next/font/google";
 import { AuthGate } from "@/components/AuthGate";
+import { LegalNotice } from "@/components/LegalNotice";
 import { SiteHeader } from "@/components/SiteHeader";
 import "./globals.css";
 
@@ -22,7 +23,7 @@ const newsreader = Newsreader({
 
 export const metadata: Metadata = {
   title: "Prelegal",
-  description: "Fill in a template to generate a ready-to-sign legal agreement.",
+  description: "Draft legal agreements from standard templates by chatting with AI.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -36,6 +37,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <SiteHeader />
           <div className="flex flex-1 flex-col">{children}</div>
         </AuthGate>
+        <footer className="border-t border-line px-6 py-4">
+          <LegalNotice className="mx-auto w-full max-w-6xl text-xs text-muted" />
+        </footer>
       </body>
     </html>
   );

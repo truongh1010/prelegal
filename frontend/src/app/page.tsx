@@ -12,10 +12,10 @@ export default function Home() {
           Standard legal templates
         </p>
         <h1 className="mt-3 font-serif text-4xl font-semibold text-ink">
-          Fill in a form. Get a document ready to sign.
+          Describe the deal. Get a draft agreement.
         </h1>
         <p className="mt-3 max-w-xl text-ink-soft">
-          Answer a few questions about the deal and watch the agreement fill in
+          Tell the AI about the deal and watch the agreement fill in
           live, word for word, then download it.
         </p>
       </div>

@@ -15,7 +15,7 @@ def test_chat_turn_response_shape(authed_client, document_id, monkeypatch):
     )
 
     assert response.status_code == 200
-    assert response.json() == {"message": "Thanks! What's the purpose?", "fields": {}, "messages_remaining": 4}
+    assert response.json() == {"message": "Thanks! What's the purpose?", "fields": {}}
 
 
 def test_empty_conversation_never_reaches_the_ai(authed_client, document_id, monkeypatch):
@@ -167,3 +167,34 @@ def test_chat_with_unknown_document_id_returns_404(authed_client, monkeypatch):
     )
 
     assert response.status_code == 404
+
+
+def test_ai_failures_are_logged_without_the_error_text(authed_client, document_id, monkeypatch, caplog):
+    def fail(*args, **kwargs):
+        error = APIConnectionError(request=MagicMock())
+        error.message = "Acme Inc. secret deal terms"
+        raise error
+
+    fake_openai(monkeypatch, parse=fail)
+
+    authed_client.post(
+        "/api/chat",
+        json={"template": "mutual-nda", "document_id": document_id, "messages": USER_TURN, "fields": {}},
+    )
+
+    assert "APIConnectionError" in caplog.text
+    assert "secret deal terms" not in caplog.text
+
+
+def test_unparseable_ai_reply_returns_502(authed_client, document_id, monkeypatch):
+    completion = MagicMock()
+    completion.choices[0].message.parsed = None
+    fake_openai(monkeypatch, parse=MagicMock(return_value=completion))
+
+    response = authed_client.post(
+        "/api/chat",
+        json={"template": "mutual-nda", "document_id": document_id, "messages": USER_TURN, "fields": {}},
+    )
+
+    assert response.status_code == 502
+    assert authed_client.get(f"/api/documents/{document_id}").json()["messages"] == []

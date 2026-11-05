@@ -1,3 +1,5 @@
+import pytest
+
 from app.core.chat_limits import MAX_ASSISTANT_MESSAGE_CHARS, MAX_FIELD_VALUE_CHARS
 from app.core.config import settings
 from app.core.openai_client import client as openai_client
@@ -16,6 +18,25 @@ def send(client, document_id, messages, fields=None):
         "/api/chat",
         json={"template": "mutual-nda", "document_id": document_id, "messages": messages, "fields": fields or {}},
     )
+
+
+@pytest.mark.parametrize(
+    "messages",
+    [
+        [],
+        [{"role": "assistant", "content": "Hello"}],
+        [{"role": "user", "content": "   "}],
+        [{"role": "user", "content": "x" * 2001}],
+    ],
+)
+def test_invalid_requests_never_reach_the_ai(authed_client, document_id, monkeypatch, messages):
+    parse = fake_openai(monkeypatch)
+
+    response = send(authed_client, document_id, messages)
+
+    assert response.status_code == 422
+    assert isinstance(response.json()["detail"], str)
+    parse.assert_not_called()
 
 
 def test_only_the_latest_40_messages_reach_the_ai_but_all_are_saved(authed_client, document_id, monkeypatch):

@@ -272,9 +272,9 @@ def build_system_prompt(document: DocumentSpec) -> str:
     return f"""You are a friendly assistant helping someone fill in {document.intro}. Your job \
 is to have a natural, conversational back-and-forth that gathers the following fields.
 
-The user has already seen a greeting, so don't greet them again. They only get a few AI \
-messages in total, so make each one count: ask for 4 to 6 related fields at once, grouped \
-logically, or for everything that's left if 6 or fewer fields are missing. Never ask for one \
+The user has already seen a greeting, so don't greet them again. Keep the conversation short: \
+ask for 4 to 6 related fields at once, grouped logically, or for everything that's left if 6 \
+or fewer fields are missing. Never ask for one \
 field at a time, but never recite the whole list as a form either. Extract everything the user \
 volunteers, including fields you didn't ask about.
 

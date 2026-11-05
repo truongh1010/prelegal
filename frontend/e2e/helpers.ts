@@ -6,9 +6,7 @@ import type { Page } from "@playwright/test";
  * app calls has to be mocked - see {@link mockChat}/{@link mockDiscover}. */
 export async function skipLogin(page: Page) {
   await page.route("**/api/me", async (route) => {
-    await route.fulfill({
-      json: { email: "someone@example.com", ai_messages_remaining: 5, ai_messages_limit: 5 },
-    });
+    await route.fulfill({ json: { email: "someone@example.com" } });
   });
 }
 
@@ -26,7 +24,7 @@ export async function mockChat(
   await page.route("**/api/chat", async (route) => {
     const body = responses[Math.min(call, responses.length - 1)];
     call += 1;
-    await route.fulfill({ json: { ...body, messages_remaining: 4 } });
+    await route.fulfill({ json: body });
   });
 }
 
@@ -39,7 +37,7 @@ export async function mockDiscover(
   await page.route("**/api/discover", async (route) => {
     const body = responses[Math.min(call, responses.length - 1)];
     call += 1;
-    await route.fulfill({ json: { ...body, messages_remaining: 4 } });
+    await route.fulfill({ json: body });
   });
 }
 

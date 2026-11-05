@@ -46,17 +46,6 @@ export async function checkSession(): Promise<boolean> {
   return response.ok;
 }
 
-export interface Me {
-  email: string;
-  ai_messages_remaining: number;
-  ai_messages_limit: number;
-}
-
-export async function fetchMe(): Promise<Me | null> {
-  const response = await fetch(`${API_BASE}/api/me`, { credentials: "include" });
-  return response.ok ? ((await response.json()) as Me) : null;
-}
-
 export function subscribeToAuthChange(callback: () => void): () => void {
   window.addEventListener(AUTH_CHANGE_EVENT, callback);
   return () => window.removeEventListener(AUTH_CHANGE_EVENT, callback);

@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -9,6 +10,10 @@ from app.api.routes import auth, chat, discover, documents, health
 from app.core.config import settings
 from app.core.database import init_db
 from app.core.rate_limit import limiter, rate_limit_handler
+
+
+# Uvicorn only sets up its own loggers, so the app's need configuring here.
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 
 @asynccontextmanager

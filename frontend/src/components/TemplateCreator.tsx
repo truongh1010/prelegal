@@ -7,6 +7,7 @@ import { fillTemplateBody } from "@/lib/templates/fill";
 import type { ChatMessage } from "@/lib/chat/api";
 import { createDocument, getDocument } from "@/lib/documents/api";
 import { ChatPanel } from "@/components/ChatPanel";
+import { LegalNotice } from "@/components/LegalNotice";
 import { CoverPage } from "@/components/CoverPage";
 
 function initialValues(template: TemplateDefinition): TemplateValues {
@@ -144,6 +145,8 @@ export function TemplateCreator({
         >
           <CoverPage template={template} values={values} />
           <div dangerouslySetInnerHTML={{ __html: filledHtml }} />
+          {/* Inside the preview so it's carried into the exported PDF, which gets shared on its own. */}
+          <LegalNotice className="mt-10 border-t border-line pt-4 text-xs text-muted" />
         </div>
       </div>
     </div>

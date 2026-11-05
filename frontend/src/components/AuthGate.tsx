@@ -11,7 +11,7 @@ interface AuthGateProps {
 }
 
 /**
- * Real, backend-checked auth gate (PL-7): signup/signin set an httpOnly session
+ * Real, backend-checked auth gate: signup/signin set an httpOnly session
  * cookie, and since that cookie can't be read from JS, the gate asks the backend
  * (GET /api/me) whether it's still valid rather than trusting local state.
  */

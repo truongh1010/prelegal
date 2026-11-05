@@ -1,5 +1,6 @@
 .env
 .env.*
+!.env.example
 
 # backend (uv / Python / SQLite)
 backend/.venv/
@@ -9,3 +10,5 @@ backend/static/
 *.py[cod]
 *.db
 *.sqlite3
+
+docs/

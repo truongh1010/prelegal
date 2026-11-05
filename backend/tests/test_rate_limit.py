@@ -3,9 +3,8 @@ from app.core.config import settings
 CREDENTIALS = {"email": "someone@example.com", "password": "password123"}
 
 
-def attempt_signin(client, ip=None):
-    headers = {"Fly-Client-IP": ip} if ip else {}
-    return client.post("/api/signin", json=CREDENTIALS, headers=headers)
+def attempt_signin(client):
+    return client.post("/api/signin", json=CREDENTIALS)
 
 
 def test_signin_is_rate_limited_with_a_plain_string_error(client, monkeypatch):
@@ -30,25 +29,10 @@ def test_signup_is_rate_limited(client, monkeypatch):
     assert second.status_code == 429
 
 
-def test_each_client_ip_gets_its_own_bucket_behind_fly(client, monkeypatch):
-    monkeypatch.setattr(settings, "signin_rate_limit", "1/minute")
-    monkeypatch.setattr(settings, "trust_fly_client_ip", True)
-
-    assert attempt_signin(client, ip="203.0.113.1").status_code == 401
-    assert attempt_signin(client, ip="203.0.113.1").status_code == 429
-    assert attempt_signin(client, ip="203.0.113.2").status_code == 401
-
-
-def test_faked_ip_header_cannot_dodge_the_limit_outside_fly(client, monkeypatch):
+def test_a_forwarded_ip_header_cannot_dodge_the_limit(client, monkeypatch):
     monkeypatch.setattr(settings, "signin_rate_limit", "1/minute")
 
-    assert attempt_signin(client, ip="203.0.113.1").status_code == 401
-    assert attempt_signin(client, ip="203.0.113.2").status_code == 429
+    for ip in ["203.0.113.1", "203.0.113.2"]:
+        response = client.post("/api/signin", json=CREDENTIALS, headers={"X-Forwarded-For": ip})
 
-
-def test_falls_back_to_the_connection_address_if_fly_sends_no_header(client, monkeypatch):
-    monkeypatch.setattr(settings, "signin_rate_limit", "1/minute")
-    monkeypatch.setattr(settings, "trust_fly_client_ip", True)
-
-    assert attempt_signin(client).status_code == 401
-    assert attempt_signin(client).status_code == 429
+    assert response.status_code == 429

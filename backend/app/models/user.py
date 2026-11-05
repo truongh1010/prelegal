@@ -10,6 +10,3 @@ class User(SQLModel, table=True):
     email: str = Field(unique=True, index=True)
     hashed_password: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    # Lifetime count, kept here rather than derived from stored chats so that
-    # deleting a document can't give messages back.
-    ai_messages_used: int = 0

@@ -30,13 +30,13 @@ test("blocks the app behind sign-in, then lets valid credentials through", async
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /fill in a form/i })).not.toBeVisible();
+  await expect(page.getByRole("heading", { name: /get a draft agreement/i })).not.toBeVisible();
 
   await page.getByLabel("Email").fill("someone@example.com");
   await page.getByLabel("Password").fill("password123");
   await page.getByRole("button", { name: "Continue" }).click();
 
-  await expect(page.getByRole("heading", { name: /fill in a form/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /get a draft agreement/i })).toBeVisible();
 });
 
 test("stays signed in across a reload, and Log out sends the user back to the sign-in screen", async ({
@@ -47,10 +47,10 @@ test("stays signed in across a reload, and Log out sends the user back to the si
   await page.getByLabel("Email").fill("someone@example.com");
   await page.getByLabel("Password").fill("password123");
   await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("heading", { name: /fill in a form/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /get a draft agreement/i })).toBeVisible();
 
   await page.reload();
-  await expect(page.getByRole("heading", { name: /fill in a form/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /get a draft agreement/i })).toBeVisible();
 
   await page.getByRole("button", { name: "Log out" }).click();
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();

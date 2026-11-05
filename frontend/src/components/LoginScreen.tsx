@@ -35,7 +35,7 @@ export function LoginScreen() {
   }
 
   return (
-    <div className="flex min-h-screen flex-1 items-center justify-center bg-canvas px-6">
+    <div className="flex flex-1 items-center justify-center bg-canvas px-6 py-10">
       <form
         onSubmit={handleSubmit}
         className="flex w-full max-w-sm flex-col gap-5 rounded-lg border border-line bg-paper p-8"

@@ -1,9 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from openai import OpenAIError
 from pydantic import BaseModel
-from sqlmodel import Session as DbSession
 
-from app.core import quota
 from app.core.auth import get_current_user
 from app.core.catalog import read_catalog
 from app.core.chat_limits import (
@@ -14,9 +12,8 @@ from app.core.chat_limits import (
     clip,
     validate_history,
 )
-from app.core.database import get_session
 from app.core.documents import DOCUMENTS
-from app.core.openai_client import client
+from app.core.openai_client import ai_unavailable, ai_unparseable, client
 from app.models.user import User
 
 router = APIRouter()
@@ -31,11 +28,6 @@ class DiscoverRequest(BaseModel):
 class DiscoverTurnOutput(BaseModel):
     message: str
     matchedSlug: str | None = None
-
-
-# Separate from DiscoverTurnOutput, which is the schema the AI fills in.
-class DiscoverResponse(DiscoverTurnOutput):
-    messages_remaining: int
 
 
 def discoverable_documents() -> list[tuple[str, str, str]]:
@@ -59,9 +51,8 @@ they need. Here are the documents you can generate (slug: "Name" - description):
 
 {listing}
 
-The user has already seen a greeting, so don't greet them again. They only get a few AI \
-messages in total, shared with drafting the document itself, so settle this in as few turns as \
-possible. If what they want is reasonably clear, match it right away rather than asking \
+The user has already seen a greeting, so don't greet them again. Settle this in as few turns \
+as possible. If what they want is reasonably clear, match it right away rather than asking \
 follow-up questions. Match their description to the single best document from the list above.
 
 If their request clearly matches one of the documents (even if worded informally), set \
@@ -93,7 +84,7 @@ def generate_discover_turn(messages: list[ChatMessage]) -> DiscoverTurnOutput:
     )
     parsed = completion.choices[0].message.parsed
     if parsed is None:
-        raise HTTPException(status_code=502, detail="The AI response could not be parsed.")
+        raise ai_unparseable()
 
     valid_slugs = {slug for slug, _, _ in discoverable_documents()}
     if parsed.matchedSlug not in valid_slugs:
@@ -102,21 +93,13 @@ def generate_discover_turn(messages: list[ChatMessage]) -> DiscoverTurnOutput:
 
 
 @router.post("/discover")
-def discover(
-    request: DiscoverRequest,
-    user: User = Depends(get_current_user),
-    db: DbSession = Depends(get_session),
-) -> DiscoverResponse:
+def discover(request: DiscoverRequest, user: User = Depends(get_current_user)) -> DiscoverTurnOutput:
     validate_history(request.messages)
 
-    with quota.charged_ai_message(db, user.id):
-        try:
-            result = generate_discover_turn(request.messages)
-        except OpenAIError as error:
-            raise HTTPException(status_code=502, detail="The AI service is unavailable.") from error
+    try:
+        result = generate_discover_turn(request.messages)
+    except OpenAIError as error:
+        raise ai_unavailable(error) from error
 
-    return DiscoverResponse(
-        message=clip(result.message, MAX_ASSISTANT_MESSAGE_CHARS),
-        matchedSlug=result.matchedSlug,
-        messages_remaining=quota.remaining(user),
-    )
+    result.message = clip(result.message, MAX_ASSISTANT_MESSAGE_CHARS)
+    return result

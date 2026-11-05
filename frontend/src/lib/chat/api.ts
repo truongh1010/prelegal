@@ -9,7 +9,6 @@ export interface ChatMessage {
 export interface ChatTurnResult {
   message: string;
   fields: TemplateValues;
-  messagesRemaining: number;
 }
 
 export class ChatApiError extends Error {
@@ -27,12 +26,12 @@ async function toChatApiError(response: Response): Promise<ChatApiError> {
   return new ChatApiError(response.status, await readErrorDetail(response, GENERIC_ERROR));
 }
 
-/** Limit and validation errors are written for the user, so they're shown as they
- * arrive. Anything else (an outage, a network failure) gets a generic message. */
+/** Validation errors are written for the user, so they're shown as they arrive.
+ * Anything else (an outage, a network failure) gets a generic message. */
 export function friendlyChatError(error: unknown): string {
   if (error instanceof ChatApiError) {
     if (error.status === 401) return "Your session has expired. Please sign in again.";
-    if (error.status === 422 || error.status === 429) return error.message;
+    if (error.status === 422) return error.message;
   }
   return GENERIC_ERROR;
 }
@@ -59,22 +58,17 @@ export async function sendChatTurn(
     throw await toChatApiError(response);
   }
 
-  const data = (await response.json()) as {
-    message: string;
-    fields: Record<string, string | null>;
-    messages_remaining: number;
-  };
+  const data = (await response.json()) as { message: string; fields: Record<string, string | null> };
   const cleanedFields = Object.fromEntries(
     Object.entries(data.fields).filter(([, value]) => value != null),
   ) as TemplateValues;
 
-  return { message: data.message, fields: cleanedFields, messagesRemaining: data.messages_remaining };
+  return { message: data.message, fields: cleanedFields };
 }
 
 export interface DiscoverTurnResult {
   message: string;
   matchedSlug: string | null;
-  messagesRemaining: number;
 }
 
 export async function sendDiscoverTurn(messages: ChatMessage[]): Promise<DiscoverTurnResult> {
@@ -89,10 +83,5 @@ export async function sendDiscoverTurn(messages: ChatMessage[]): Promise<Discove
     throw await toChatApiError(response);
   }
 
-  const data = (await response.json()) as {
-    message: string;
-    matchedSlug: string | null;
-    messages_remaining: number;
-  };
-  return { message: data.message, matchedSlug: data.matchedSlug, messagesRemaining: data.messages_remaining };
+  return (await response.json()) as DiscoverTurnResult;
 }

@@ -4,7 +4,6 @@ from openai import OpenAIError
 from pydantic import BaseModel, create_model
 from sqlmodel import Session as DbSession
 
-from app.core import quota
 from app.core.auth import get_current_user
 from app.core.chat_limits import (
     MAX_ASSISTANT_MESSAGE_CHARS,
@@ -24,7 +23,7 @@ from app.core.documents import (
     build_system_prompt,
     get_document,
 )
-from app.core.openai_client import client
+from app.core.openai_client import ai_unavailable, ai_unparseable, client
 from app.models.document import Document
 from app.models.user import User
 
@@ -40,13 +39,9 @@ class ChatRequest(BaseModel):
     fields: dict[str, str | None] = {}
 
 
-class ChatTurn(BaseModel):
+class ChatTurnResponse(BaseModel):
     message: str
     fields: dict[str, str | None]
-
-
-class ChatTurnResponse(ChatTurn):
-    messages_remaining: int
 
 
 def known_fields_summary(document: DocumentSpec, fields: dict[str, str | None]) -> str:
@@ -61,7 +56,7 @@ def known_fields_summary(document: DocumentSpec, fields: dict[str, str | None]) 
 
 def generate_chat_turn(
     document: DocumentSpec, messages: list[ChatMessage], fields: dict[str, str | None]
-) -> ChatTurn:
+) -> ChatTurnResponse:
     fields_model = build_fields_model(document)
     model_name = document.slug.title().replace("-", "")
     turn_output_model = create_model(
@@ -87,8 +82,8 @@ def generate_chat_turn(
     )
     parsed = completion.choices[0].message.parsed
     if parsed is None:
-        raise HTTPException(status_code=502, detail="The AI response could not be parsed.")
-    return ChatTurn(
+        raise ai_unparseable()
+    return ChatTurnResponse(
         message=clip(parsed.message, MAX_ASSISTANT_MESSAGE_CHARS),
         fields=clip_fields(parsed.fields.model_dump()),
     )
@@ -111,27 +106,20 @@ def chat(
     validate_history(request.messages)
     known_fields = validate_fields(document, request.fields)
 
-    # Saving is inside the charged block too: a reply that couldn't be saved never
-    # reaches the user, so it shouldn't cost them a message.
-    with quota.charged_ai_message(db, user.id):
-        try:
-            result = generate_chat_turn(document, request.messages, known_fields)
-        except OpenAIError as error:
-            raise HTTPException(status_code=502, detail="The AI service is unavailable.") from error
+    try:
+        result = generate_chat_turn(document, request.messages, known_fields)
+    except OpenAIError as error:
+        raise ai_unavailable(error) from error
 
-        stored_document.fields = {
-            **known_fields,
-            **{key: value for key, value in result.fields.items() if value is not None},
-        }
-        stored_document.messages = [message.model_dump() for message in request.messages] + [
-            {"role": "assistant", "content": result.message}
-        ]
-        stored_document.updated_at = datetime.now(timezone.utc)
-        db.add(stored_document)
-        db.commit()
+    stored_document.fields = {
+        **known_fields,
+        **{key: value for key, value in result.fields.items() if value is not None},
+    }
+    stored_document.messages = [message.model_dump() for message in request.messages] + [
+        {"role": "assistant", "content": result.message}
+    ]
+    stored_document.updated_at = datetime.now(timezone.utc)
+    db.add(stored_document)
+    db.commit()
 
-    return ChatTurnResponse(
-        message=result.message,
-        fields=result.fields,
-        messages_remaining=quota.remaining(user),
-    )
+    return result

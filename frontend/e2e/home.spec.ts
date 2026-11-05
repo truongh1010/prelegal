@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
 test("lists every catalog template, all enabled for creation", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { name: /fill in a form/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /get a draft agreement/i })).toBeVisible();
 
   const rows = page.locator("ul > li");
   await expect(rows).toHaveCount(11);

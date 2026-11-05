@@ -12,11 +12,7 @@ def test_discover_response_shape(authed_client, monkeypatch):
     response = authed_client.post("/api/discover", json={"messages": USER_TURN})
 
     assert response.status_code == 200
-    assert response.json() == {
-        "message": "What kind of customer is it?",
-        "matchedSlug": None,
-        "messages_remaining": 4,
-    }
+    assert response.json() == {"message": "What kind of customer is it?", "matchedSlug": None}
 
 
 def test_empty_conversation_never_reaches_the_ai(authed_client, monkeypatch):

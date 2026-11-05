@@ -23,10 +23,6 @@ vi.mock("@/lib/chat/api", async (importOriginal) => ({
   sendChatTurn: vi.fn(),
 }));
 
-vi.mock("@/lib/auth", () => ({
-  fetchMe: vi.fn().mockResolvedValue(null),
-}));
-
 vi.mock("@/lib/documents/api", () => ({
   createDocument: vi.fn(),
   getDocument: vi.fn(),
@@ -95,7 +91,6 @@ describe("TemplateCreator", () => {
     sendChatTurnMock.mockResolvedValueOnce({
       message: "Got it, thanks.",
       fields: { purpose: "evaluating a partnership" },
-      messagesRemaining: 4,
     });
     await sendMessage(user, "We're evaluating a partnership.");
 
@@ -114,14 +109,14 @@ describe("TemplateCreator", () => {
     sendChatTurnMock.mockResolvedValueOnce({
       message: "Got it, thanks.",
       fields: { purpose: "[click here](javascript:alert(1))" },
-      messagesRemaining: 4,
     });
     await sendMessage(user, "It's for [click here](javascript:alert(1))");
 
     await waitFor(() => {
       expect(preview.getByText(/click here/)).toBeInTheDocument();
     });
-    expect(preview.element.querySelector("a")).toBeNull();
+    expect(preview.queryByRole("link", { name: /click here/ })).not.toBeInTheDocument();
+    expect(preview.element.querySelector('a[href^="javascript:"]')).toBeNull();
   });
 
   it("hands the rendered preview to jsPDF and saves a file named after the template slug", async () => {
@@ -155,6 +150,12 @@ describe("TemplateCreator", () => {
 
     resolveHtml();
     await waitFor(() => expect(screen.getByRole("button", { name: /download pdf/i })).toBeEnabled());
+  });
+
+  it("carries the legal notice inside the preview, which is what becomes the PDF", async () => {
+    const preview = await renderPreview(<TemplateCreator template={template} rawContent={rawContent} />);
+
+    expect(preview.getByText(/this is not legal advice/i)).toBeInTheDocument();
   });
 
   it("creates a new document on mount and records its id in the URL", async () => {

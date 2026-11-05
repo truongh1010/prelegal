@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, field_validator
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session as DbSession
 from sqlmodel import select
 
-from app.core import quota
-from app.core.auth import SESSION_COOKIE_NAME, get_current_user
+from app.core.auth import SESSION_COOKIE_NAME, SESSION_LIFETIME, get_current_user
 from app.core.config import settings
 from app.core.database import get_session
 from app.core.rate_limit import limiter
@@ -14,9 +14,9 @@ from app.models.user_session import UserSession
 
 router = APIRouter()
 
-# One week. Sessions are wiped early anyway whenever the container restarts,
-# since the whole database is recreated from scratch on every boot.
-COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 7
+
+def _email_taken() -> HTTPException:
+    return HTTPException(status_code=409, detail="An account with that email already exists.")
 
 
 class Credentials(BaseModel):
@@ -43,21 +43,15 @@ class UserOut(BaseModel):
     email: str
 
 
-class MeOut(UserOut):
-    ai_messages_remaining: int
-    ai_messages_limit: int
-
-
 def _set_session_cookie(response: Response, token: str) -> None:
-    # Not `secure=True`: the app is only ever served over plain HTTP today (no
-    # TLS termination anywhere in this project's deployment), and a Secure
-    # cookie would silently never be sent, breaking auth entirely.
+    # Not `secure=True`: the app runs on plain http://localhost, where some browsers
+    # would silently drop a Secure cookie, breaking auth entirely.
     response.set_cookie(
         key=SESSION_COOKIE_NAME,
         value=token,
         httponly=True,
         samesite="lax",
-        max_age=COOKIE_MAX_AGE_SECONDS,
+        max_age=int(SESSION_LIFETIME.total_seconds()),
     )
 
 
@@ -71,11 +65,16 @@ def signup(
 ) -> UserOut:
     existing = db.exec(select(User).where(User.email == credentials.email)).first()
     if existing is not None:
-        raise HTTPException(status_code=409, detail="An account with that email already exists.")
+        raise _email_taken()
 
     user = User(email=credentials.email, hashed_password=hash_password(credentials.password))
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # A simultaneous signup got there first, after the check above.
+        db.rollback()
+        raise _email_taken() from None
     db.refresh(user)
 
     session = UserSession(user_id=user.id)
@@ -122,9 +121,5 @@ def logout(
 
 
 @router.get("/me")
-def me(user: User = Depends(get_current_user)) -> MeOut:
-    return MeOut(
-        email=user.email,
-        ai_messages_remaining=quota.remaining(user),
-        ai_messages_limit=settings.ai_messages_per_account,
-    )
+def me(user: User = Depends(get_current_user)) -> UserOut:
+    return UserOut(email=user.email)

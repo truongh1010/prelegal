@@ -2,21 +2,11 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
-
-from app.core.config import settings
-
-
-def client_ip(request: Request) -> str:
-    """Behind Fly's proxy every connection comes from the proxy itself, so the real
-    address is in Fly-Client-IP. Without this, all users would share one bucket."""
-    forwarded = request.headers.get("fly-client-ip") if settings.trust_fly_client_ip else None
-    return forwarded or (request.client.host if request.client else "unknown")
-
+from slowapi.util import get_remote_address
 
 # In-memory counters reset on restart, which is fine for one server process: these
-# only slow down password guessing and signup farming. The durable limits on AI
-# spending live in app/core/quota.py.
-limiter = Limiter(key_func=client_ip)
+# only slow down password guessing and signup farming.
+limiter = Limiter(key_func=get_remote_address)
 
 
 def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
