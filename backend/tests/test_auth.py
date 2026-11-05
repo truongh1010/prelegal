@@ -54,7 +54,7 @@ def test_me_returns_the_signed_in_user(client):
     response = client.get("/api/me")
 
     assert response.status_code == 200
-    assert response.json() == {"email": "me@example.com"}
+    assert response.json() == {"email": "me@example.com", "ai_messages_remaining": 5, "ai_messages_limit": 5}
 
 
 def test_logout_clears_the_session(client):

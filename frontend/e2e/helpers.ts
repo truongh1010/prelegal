@@ -6,7 +6,9 @@ import type { Page } from "@playwright/test";
  * app calls has to be mocked - see {@link mockChat}/{@link mockDiscover}. */
 export async function skipLogin(page: Page) {
   await page.route("**/api/me", async (route) => {
-    await route.fulfill({ json: { email: "someone@example.com" } });
+    await route.fulfill({
+      json: { email: "someone@example.com", ai_messages_remaining: 5, ai_messages_limit: 5 },
+    });
   });
 }
 
@@ -14,7 +16,7 @@ export async function skipLogin(page: Page) {
  * The e2e webServer only serves the static export - there's no live backend, so
  * every test that touches the AI chat must mock /api/chat itself. Responses are
  * played back in order, one per request; the last one repeats for any further
- * requests (e.g. the opening turn plus one reply per test is the common case).
+ * requests.
  */
 export async function mockChat(
   page: Page,
@@ -24,7 +26,7 @@ export async function mockChat(
   await page.route("**/api/chat", async (route) => {
     const body = responses[Math.min(call, responses.length - 1)];
     call += 1;
-    await route.fulfill({ json: body });
+    await route.fulfill({ json: { ...body, messages_remaining: 4 } });
   });
 }
 
@@ -37,7 +39,7 @@ export async function mockDiscover(
   await page.route("**/api/discover", async (route) => {
     const body = responses[Math.min(call, responses.length - 1)];
     call += 1;
-    await route.fulfill({ json: body });
+    await route.fulfill({ json: { ...body, messages_remaining: 4 } });
   });
 }
 

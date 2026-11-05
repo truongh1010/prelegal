@@ -6,6 +6,8 @@ import type { TemplateDefinition } from "@/lib/templates/types";
 import { sendChatTurn } from "@/lib/chat/api";
 import { createDocument, getDocument } from "@/lib/documents/api";
 
+const GREETING = /help you fill in your Mutual Non-Disclosure Agreement/i;
+
 const htmlMock = vi.fn().mockResolvedValue(undefined);
 const saveMock = vi.fn();
 
@@ -16,8 +18,13 @@ vi.mock("jspdf", () => ({
   }),
 }));
 
-vi.mock("@/lib/chat/api", () => ({
+vi.mock("@/lib/chat/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/chat/api")>()),
   sendChatTurn: vi.fn(),
+}));
+
+vi.mock("@/lib/auth", () => ({
+  fetchMe: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock("@/lib/documents/api", () => ({
@@ -32,8 +39,6 @@ const getDocumentMock = vi.mocked(getDocument);
 beforeEach(() => {
   window.history.replaceState(null, "", "/");
   sendChatTurnMock.mockReset();
-  // The opening turn fired on mount; individual tests layer further responses on top.
-  sendChatTurnMock.mockResolvedValue({ message: "Who are the parties?", fields: {} });
   createDocumentMock.mockReset();
   createDocumentMock.mockResolvedValue({
     id: 1,
@@ -84,12 +89,13 @@ describe("TemplateCreator", () => {
     const user = userEvent.setup();
     const preview = await renderPreview(<TemplateCreator template={template} rawContent={rawContent} />);
 
-    await waitFor(() => screen.getByText("Who are the parties?"));
+    await screen.findByText(GREETING);
     expect(preview.getByText("Purpose", { selector: ".filled-value--empty" })).toBeInTheDocument();
 
     sendChatTurnMock.mockResolvedValueOnce({
       message: "Got it, thanks.",
       fields: { purpose: "evaluating a partnership" },
+      messagesRemaining: 4,
     });
     await sendMessage(user, "We're evaluating a partnership.");
 
@@ -103,11 +109,12 @@ describe("TemplateCreator", () => {
     const user = userEvent.setup();
     const preview = await renderPreview(<TemplateCreator template={template} rawContent={rawContent} />);
 
-    await waitFor(() => screen.getByText("Who are the parties?"));
+    await screen.findByText(GREETING);
 
     sendChatTurnMock.mockResolvedValueOnce({
       message: "Got it, thanks.",
       fields: { purpose: "[click here](javascript:alert(1))" },
+      messagesRemaining: 4,
     });
     await sendMessage(user, "It's for [click here](javascript:alert(1))");
 
@@ -120,7 +127,7 @@ describe("TemplateCreator", () => {
   it("hands the rendered preview to jsPDF and saves a file named after the template slug", async () => {
     const user = userEvent.setup();
     render(<TemplateCreator template={template} rawContent={rawContent} />);
-    await waitFor(() => screen.getByText("Who are the parties?"));
+    await screen.findByText(GREETING);
 
     await user.click(screen.getByRole("button", { name: /download pdf/i }));
 
@@ -139,7 +146,7 @@ describe("TemplateCreator", () => {
 
     const user = userEvent.setup();
     render(<TemplateCreator template={template} rawContent={rawContent} />);
-    await waitFor(() => screen.getByText("Who are the parties?"));
+    await screen.findByText(GREETING);
 
     const button = screen.getByRole("button", { name: /download pdf/i });
     await user.click(button);
@@ -178,7 +185,6 @@ describe("TemplateCreator", () => {
     const chatLog = await screen.findByRole("log");
     expect(within(chatLog).getByText("Acme Inc.")).toBeInTheDocument();
     expect(createDocumentMock).not.toHaveBeenCalled();
-    // The opening-turn fetch is skipped since there's already history to show.
     expect(sendChatTurnMock).not.toHaveBeenCalled();
   });
 });

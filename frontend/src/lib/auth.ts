@@ -1,3 +1,5 @@
+import { readErrorDetail } from "@/lib/http";
+
 /** Fires whenever this tab's auth state changes (sign in, sign up, or sign out),
  * so AuthGate knows to re-check the session. */
 const AUTH_CHANGE_EVENT = "prelegal:auth-change";
@@ -8,20 +10,6 @@ const AUTH_CHANGE_EVENT = "prelegal:auth-change";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 export class AuthError extends Error {}
-
-async function readErrorDetail(response: Response, fallback: string): Promise<string> {
-  try {
-    const data = await response.json();
-    if (typeof data.detail === "string") return data.detail;
-    if (Array.isArray(data.detail)) {
-      const messages = data.detail.map((item: { msg?: string }) => item.msg).filter(Boolean);
-      if (messages.length > 0) return messages.join(" ");
-    }
-  } catch {
-    // Body wasn't JSON - fall through to the fallback message.
-  }
-  return fallback;
-}
 
 async function submitCredentials(path: string, email: string, password: string, fallback: string): Promise<void> {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -56,6 +44,17 @@ export async function signOut(): Promise<void> {
 export async function checkSession(): Promise<boolean> {
   const response = await fetch(`${API_BASE}/api/me`, { credentials: "include" });
   return response.ok;
+}
+
+export interface Me {
+  email: string;
+  ai_messages_remaining: number;
+  ai_messages_limit: number;
+}
+
+export async function fetchMe(): Promise<Me | null> {
+  const response = await fetch(`${API_BASE}/api/me`, { credentials: "include" });
+  return response.ok ? ((await response.json()) as Me) : null;
 }
 
 export function subscribeToAuthChange(callback: () => void): () => void {

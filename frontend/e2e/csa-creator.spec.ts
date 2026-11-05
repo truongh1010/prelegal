@@ -8,7 +8,6 @@ test.beforeEach(async ({ page }) => {
 
 test("a non-NDA document fills in via chat using its own field schema and party roles", async ({ page }) => {
   await mockChat(page, [
-    { message: "Hi! Who's the Provider and who's the Customer?", fields: {} },
     {
       message: "Got it - what's the subscription period?",
       fields: { providerName: "Acme Cloud Inc.", customerName: "Globex Corp." },

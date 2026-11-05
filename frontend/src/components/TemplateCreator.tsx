@@ -119,6 +119,7 @@ export function TemplateCreator({
 
         <ChatPanel
           template={template.slug}
+          templateName={template.name}
           fields={values}
           onFieldsChange={setValues}
           documentId={documentId}

@@ -21,6 +21,14 @@ class Settings(BaseSettings):
     # match - see Dockerfile.
     catalog_path: Path = Path("../catalog.json")
     cors_origins: list[str] = ["http://localhost:3000"]
+    ai_messages_per_account: int = 5
+    ai_messages_per_day: int = 200
+    openai_timeout_seconds: float = 45
+    signup_rate_limit: str = "5/hour"
+    signin_rate_limit: str = "10/minute"
+    # Only turn this on behind Fly's proxy, which sets Fly-Client-IP itself. Anywhere
+    # else a client could send the header and get a fresh rate-limit bucket every time.
+    trust_fly_client_ip: bool = False
 
 
 settings = Settings()

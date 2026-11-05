@@ -3,10 +3,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from slowapi.errors import RateLimitExceeded
 
 from app.api.routes import auth, chat, discover, documents, health
 from app.core.config import settings
 from app.core.database import init_db
+from app.core.rate_limit import limiter, rate_limit_handler
 
 
 @asynccontextmanager
@@ -16,6 +18,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Prelegal", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
 
 app.add_middleware(
     CORSMiddleware,

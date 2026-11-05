@@ -1,10 +1,20 @@
 from fastapi import APIRouter, Depends, HTTPException
 from openai import OpenAIError
 from pydantic import BaseModel
+from sqlmodel import Session as DbSession
 
-from app.api.routes.chat import ChatMessage
+from app.core import quota
 from app.core.auth import get_current_user
 from app.core.catalog import read_catalog
+from app.core.chat_limits import (
+    MAX_ASSISTANT_MESSAGE_CHARS,
+    ChatMessage,
+    MAX_COMPLETION_TOKENS,
+    OPENAI_CONTEXT_MESSAGES,
+    clip,
+    validate_history,
+)
+from app.core.database import get_session
 from app.core.documents import DOCUMENTS
 from app.core.openai_client import client
 from app.models.user import User
@@ -15,12 +25,17 @@ MODEL = "gpt-5-nano"
 
 
 class DiscoverRequest(BaseModel):
-    messages: list[ChatMessage] = []
+    messages: list[ChatMessage]
 
 
 class DiscoverTurnOutput(BaseModel):
     message: str
     matchedSlug: str | None = None
+
+
+# Separate from DiscoverTurnOutput, which is the schema the AI fills in.
+class DiscoverResponse(DiscoverTurnOutput):
+    messages_remaining: int
 
 
 def discoverable_documents() -> list[tuple[str, str, str]]:
@@ -44,8 +59,10 @@ they need. Here are the documents you can generate (slug: "Name" - description):
 
 {listing}
 
-Ask the user what they're trying to accomplish if it's not already clear. Match their \
-description to the single best document from the list above.
+The user has already seen a greeting, so don't greet them again. They only get a few AI \
+messages in total, shared with drafting the document itself, so settle this in as few turns as \
+possible. If what they want is reasonably clear, match it right away rather than asking \
+follow-up questions. Match their description to the single best document from the list above.
 
 If their request clearly matches one of the documents (even if worded informally), set \
 matchedSlug to that document's slug and let them know which document you'll help them create.
@@ -62,20 +79,17 @@ Keep your messages short and conversational, not legalistic."""
 def generate_discover_turn(messages: list[ChatMessage]) -> DiscoverTurnOutput:
     openai_messages = [
         {"role": "system", "content": build_system_prompt()},
-        *[{"role": message.role, "content": message.content} for message in messages],
+        *[
+            {"role": message.role, "content": message.content}
+            for message in messages[-OPENAI_CONTEXT_MESSAGES:]
+        ],
     ]
-    if not messages:
-        openai_messages.append(
-            {
-                "role": "system",
-                "content": "The conversation hasn't started yet. Greet the user and ask what document they need.",
-            }
-        )
 
     completion = client.chat.completions.parse(
         model=MODEL,
         messages=openai_messages,
         response_format=DiscoverTurnOutput,
+        max_completion_tokens=MAX_COMPLETION_TOKENS,
     )
     parsed = completion.choices[0].message.parsed
     if parsed is None:
@@ -88,8 +102,21 @@ def generate_discover_turn(messages: list[ChatMessage]) -> DiscoverTurnOutput:
 
 
 @router.post("/discover")
-def discover(request: DiscoverRequest, user: User = Depends(get_current_user)) -> DiscoverTurnOutput:
-    try:
-        return generate_discover_turn(request.messages)
-    except OpenAIError as error:
-        raise HTTPException(status_code=502, detail="The AI service is unavailable.") from error
+def discover(
+    request: DiscoverRequest,
+    user: User = Depends(get_current_user),
+    db: DbSession = Depends(get_session),
+) -> DiscoverResponse:
+    validate_history(request.messages)
+
+    with quota.charged_ai_message(db, user.id):
+        try:
+            result = generate_discover_turn(request.messages)
+        except OpenAIError as error:
+            raise HTTPException(status_code=502, detail="The AI service is unavailable.") from error
+
+    return DiscoverResponse(
+        message=clip(result.message, MAX_ASSISTANT_MESSAGE_CHARS),
+        matchedSlug=result.matchedSlug,
+        messages_remaining=quota.remaining(user),
+    )

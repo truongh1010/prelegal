@@ -270,8 +270,13 @@ def build_fields_model(document: DocumentSpec) -> type[BaseModel]:
 def build_system_prompt(document: DocumentSpec) -> str:
     field_lines = "\n".join(f"- {field.key}: {field.description}" for field in document.fields)
     return f"""You are a friendly assistant helping someone fill in {document.intro}. Your job \
-is to have a natural, conversational back-and-forth that gathers the following fields. Ask \
-about one or two related fields at a time - never recite the whole list as a form.
+is to have a natural, conversational back-and-forth that gathers the following fields.
+
+The user has already seen a greeting, so don't greet them again. They only get a few AI \
+messages in total, so make each one count: ask for 4 to 6 related fields at once, grouped \
+logically, or for everything that's left if 6 or fewer fields are missing. Never ask for one \
+field at a time, but never recite the whole list as a form either. Extract everything the user \
+volunteers, including fields you didn't ask about.
 
 Fields to gather:
 {field_lines}
@@ -282,7 +287,7 @@ Only fill in fields the user has actually provided information for - leave every
 null rather than guessing.
 
 If any fields are still missing after this reply, your message must end with a specific \
-question about the next one or two missing fields - never end a turn without a next step \
+question about the next group of missing fields - never end a turn without a next step \
 unless the document is fully complete.
 
 Once every field is known, tell the user their document is ready to review and stop asking \

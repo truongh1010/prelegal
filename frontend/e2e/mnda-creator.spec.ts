@@ -21,7 +21,6 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("shows blank placeholders before anything is filled in", async ({ page }) => {
-  await mockChat(page, [{ message: "Hi! Who are the two parties to this NDA?", fields: {} }]);
   await page.goto("/create/mutual-nda/");
 
   const preview = page.getByTestId("document-preview");
@@ -33,7 +32,6 @@ test("shows blank placeholders before anything is filled in", async ({ page }) =
 
 test("the live preview updates as the AI extracts fields from chat", async ({ page }) => {
   await mockChat(page, [
-    { message: "Hi! Who are the two parties to this NDA?", fields: {} },
     { message: "Got it, thanks - your document is ready to review.", fields: filledFields },
   ]);
   await page.goto("/create/mutual-nda/");
@@ -56,7 +54,6 @@ test("the live preview updates as the AI extracts fields from chat", async ({ pa
 
 test("focus returns to the message input after the assistant replies", async ({ page }) => {
   await mockChat(page, [
-    { message: "Hi! Who are the two parties to this NDA?", fields: {} },
     { message: "Got it, and what's the effective date?", fields: { party1Name: "Acme Inc." } },
   ]);
   await page.goto("/create/mutual-nda/");
@@ -72,7 +69,6 @@ test("focus returns to the message input after the assistant replies", async ({ 
 test("a markdown-injection payload renders as inert text, never a real link", async ({ page }) => {
   const malicious = "[click here](javascript:alert(document.cookie))";
   await mockChat(page, [
-    { message: "Hi! Who are the two parties to this NDA?", fields: {} },
     { message: "Got it, thanks.", fields: { purpose: malicious } },
   ]);
   await page.goto("/create/mutual-nda/");
@@ -91,7 +87,6 @@ test("a markdown-injection payload renders as inert text, never a real link", as
 
 test("Download PDF saves a real PDF file containing the filled-in details", async ({ page }) => {
   await mockChat(page, [
-    { message: "Hi! Who are the two parties to this NDA?", fields: {} },
     {
       message: "Got it, thanks.",
       fields: { party1Name: "Acme Inc.", party2Name: "Globex Corp.", purpose: "evaluating a potential partnership" },

@@ -3,37 +3,36 @@ from unittest.mock import MagicMock
 import pytest
 from openai import APIConnectionError
 
-from app.api.routes import chat as chat_module
+from tests.helpers import USER_TURN, fake_openai
 
 
-def mock_parse_returning(message: str, fields: dict[str, str | None]):
-    parsed = MagicMock()
-    parsed.message = message
-    parsed.fields.model_dump.return_value = fields
-    completion = MagicMock()
-    completion.choices[0].message.parsed = parsed
-    return MagicMock(return_value=completion)
+def test_chat_turn_response_shape(authed_client, document_id, monkeypatch):
+    fake_openai(monkeypatch, message="Thanks! What's the purpose?", fields={})
+
+    response = authed_client.post(
+        "/api/chat",
+        json={"template": "mutual-nda", "document_id": document_id, "messages": USER_TURN, "fields": {}},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"message": "Thanks! What's the purpose?", "fields": {}, "messages_remaining": 4}
 
 
-def test_opening_turn_has_no_history(authed_client, document_id, monkeypatch):
-    parse_mock = mock_parse_returning("Hi! Who are the two parties to this NDA?", {})
-    monkeypatch.setattr(chat_module.client.chat.completions, "parse", parse_mock)
+def test_empty_conversation_never_reaches_the_ai(authed_client, document_id, monkeypatch):
+    parse_mock = fake_openai(monkeypatch, message="Hi!", fields={})
 
     response = authed_client.post(
         "/api/chat",
         json={"template": "mutual-nda", "document_id": document_id, "messages": [], "fields": {}},
     )
 
-    assert response.status_code == 200
-    assert response.json() == {"message": "Hi! Who are the two parties to this NDA?", "fields": {}}
-    sent_messages = parse_mock.call_args.kwargs["messages"]
-    assert any("hasn't started yet" in message["content"] for message in sent_messages)
+    assert response.status_code == 422
+    parse_mock.assert_not_called()
 
 
 def test_turn_extracts_fields_from_user_message(authed_client, document_id, monkeypatch):
     fields = {"party1Name": "Acme Inc.", "party2Name": "Globex Corp."}
-    parse_mock = mock_parse_returning("Got it, and what's the purpose of sharing information?", fields)
-    monkeypatch.setattr(chat_module.client.chat.completions, "parse", parse_mock)
+    fake_openai(monkeypatch, message="Got it, and what's the purpose of sharing information?", fields=fields)
 
     response = authed_client.post(
         "/api/chat",
@@ -55,15 +54,14 @@ def test_turn_extracts_fields_from_user_message(authed_client, document_id, monk
 
 
 def test_known_fields_are_passed_to_the_model(authed_client, document_id, monkeypatch):
-    parse_mock = mock_parse_returning("Thanks - what's the effective date?", {"party1Name": "Acme Inc."})
-    monkeypatch.setattr(chat_module.client.chat.completions, "parse", parse_mock)
+    parse_mock = fake_openai(monkeypatch, message="Thanks - what's the effective date?", fields={"party1Name": "Acme Inc."})
 
     authed_client.post(
         "/api/chat",
         json={
             "template": "mutual-nda",
             "document_id": document_id,
-            "messages": [],
+            "messages": USER_TURN,
             "fields": {"party1Name": "Acme Inc."},
         },
     )
@@ -76,11 +74,11 @@ def test_openai_failure_returns_502(authed_client, document_id, monkeypatch):
     def raise_error(*args, **kwargs):
         raise APIConnectionError(request=MagicMock())
 
-    monkeypatch.setattr(chat_module.client.chat.completions, "parse", raise_error)
+    fake_openai(monkeypatch, parse=raise_error)
 
     response = authed_client.post(
         "/api/chat",
-        json={"template": "mutual-nda", "document_id": document_id, "messages": [], "fields": {}},
+        json={"template": "mutual-nda", "document_id": document_id, "messages": USER_TURN, "fields": {}},
     )
 
     assert response.status_code == 502
@@ -99,12 +97,11 @@ def test_unknown_template_returns_404(authed_client):
 @pytest.mark.parametrize("template", ["csa", "dpa", "baa", "psa"])
 def test_other_documents_use_their_own_field_schema(authed_client, document_id, monkeypatch, template):
     """The chat route isn't NDA-specific: any registered document works the same way."""
-    parse_mock = mock_parse_returning("Let's get started - who are the parties?", {})
-    monkeypatch.setattr(chat_module.client.chat.completions, "parse", parse_mock)
+    parse_mock = fake_openai(monkeypatch, message="Let's get started - who are the parties?", fields={})
 
     response = authed_client.post(
         "/api/chat",
-        json={"template": template, "document_id": document_id, "messages": [], "fields": {}},
+        json={"template": template, "document_id": document_id, "messages": USER_TURN, "fields": {}},
     )
 
     assert response.status_code == 200
@@ -114,12 +111,11 @@ def test_other_documents_use_their_own_field_schema(authed_client, document_id, 
 
 
 def test_prompt_instructs_the_model_to_ask_a_follow_up_when_fields_are_missing(authed_client, document_id, monkeypatch):
-    parse_mock = mock_parse_returning("Thanks - and what's the effective date?", {"party1Name": "Acme Inc."})
-    monkeypatch.setattr(chat_module.client.chat.completions, "parse", parse_mock)
+    parse_mock = fake_openai(monkeypatch, message="Thanks - and what's the effective date?", fields={"party1Name": "Acme Inc."})
 
     authed_client.post(
         "/api/chat",
-        json={"template": "mutual-nda", "document_id": document_id, "messages": [], "fields": {}},
+        json={"template": "mutual-nda", "document_id": document_id, "messages": USER_TURN, "fields": {}},
     )
 
     sent_messages = parse_mock.call_args.kwargs["messages"]
@@ -128,8 +124,7 @@ def test_prompt_instructs_the_model_to_ask_a_follow_up_when_fields_are_missing(a
 
 
 def test_chat_turn_is_auto_saved_to_the_document(authed_client, document_id, monkeypatch):
-    parse_mock = mock_parse_returning("Got it, thanks!", {"party1Name": "Acme Inc.", "party2Name": None})
-    monkeypatch.setattr(chat_module.client.chat.completions, "parse", parse_mock)
+    fake_openai(monkeypatch, message="Got it, thanks!", fields={"party1Name": "Acme Inc.", "party2Name": None})
 
     authed_client.post(
         "/api/chat",
@@ -151,8 +146,7 @@ def test_chat_turn_is_auto_saved_to_the_document(authed_client, document_id, mon
 
 
 def test_chat_with_someone_elses_document_returns_404(authed_client, document_id, monkeypatch):
-    parse_mock = mock_parse_returning("Hi!", {})
-    monkeypatch.setattr(chat_module.client.chat.completions, "parse", parse_mock)
+    fake_openai(monkeypatch, message="Hi!", fields={})
     authed_client.post("/api/logout")
     authed_client.post("/api/signup", json={"email": "other@example.com", "password": "password123"})
 
@@ -165,8 +159,7 @@ def test_chat_with_someone_elses_document_returns_404(authed_client, document_id
 
 
 def test_chat_with_unknown_document_id_returns_404(authed_client, monkeypatch):
-    parse_mock = mock_parse_returning("Hi!", {})
-    monkeypatch.setattr(chat_module.client.chat.completions, "parse", parse_mock)
+    fake_openai(monkeypatch, message="Hi!", fields={})
 
     response = authed_client.post(
         "/api/chat",

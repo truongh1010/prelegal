@@ -2,52 +2,35 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { sendDiscoverTurn, type ChatMessage } from "@/lib/chat/api";
+import { MessageQuotaNotice } from "@/components/MessageQuotaNotice";
+import { ChatApiError, friendlyChatError, sendDiscoverTurn, type ChatMessage } from "@/lib/chat/api";
+import { DISCOVER_GREETING, MAX_MESSAGE_CHARS } from "@/lib/chat/greetings";
+import { useMessageQuota } from "@/lib/chat/useMessageQuota";
 
 /**
  * Freeform chat that helps a user figure out which catalog document they need,
  * before any specific template is chosen. On a confirmed match it routes to that
- * template's existing /create/[slug] chat, which starts its own field-gathering
- * conversation from scratch.
+ * template's existing /create/[slug] chat, which gathers that document's fields.
  */
 export function DiscoverChat() {
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
-  // Starts true: the opening-turn effect below always fires immediately on mount.
-  const [isSending, setIsSending] = useState(true);
+  const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const quota = useMessageQuota();
+  const outOfMessages = quota.remaining === 0;
+  const transcript: ChatMessage[] = [{ role: "assistant", content: DISCOVER_GREETING }, ...messages];
 
   useEffect(() => {
     if (!isSending) inputRef.current?.focus();
   }, [isSending]);
 
-  useEffect(() => {
-    let cancelled = false;
-    sendDiscoverTurn([])
-      .then((result) => {
-        if (cancelled) return;
-        setMessages([{ role: "assistant", content: result.message }]);
-        if (result.matchedSlug) router.push(`/create/${result.matchedSlug}`);
-      })
-      .catch(() => {
-        if (!cancelled) setError("Couldn't reach the assistant. Try refreshing the page.");
-      })
-      .finally(() => {
-        if (!cancelled) setIsSending(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // Intentionally fires once, when the chat opens.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   async function handleSend(event: React.FormEvent) {
     event.preventDefault();
     const text = input.trim();
-    if (!text || isSending) return;
+    if (!text || isSending || outOfMessages) return;
 
     const nextMessages: ChatMessage[] = [...messages, { role: "user", content: text }];
     setMessages(nextMessages);
@@ -58,9 +41,15 @@ export function DiscoverChat() {
     try {
       const result = await sendDiscoverTurn(nextMessages);
       setMessages([...nextMessages, { role: "assistant", content: result.message }]);
+      quota.setRemaining(result.messagesRemaining);
       if (result.matchedSlug) router.push(`/create/${result.matchedSlug}`);
-    } catch {
-      setError("Something went wrong sending that. Please try again.");
+    } catch (sendError) {
+      // Put the text back so a failed send never loses what the user typed, and take
+      // the message out of the history so it isn't sent twice on the retry.
+      setMessages(messages);
+      setInput(text);
+      setError(friendlyChatError(sendError));
+      if (sendError instanceof ChatApiError && sendError.status === 429) void quota.refresh();
     } finally {
       setIsSending(false);
     }
@@ -82,10 +71,7 @@ export function DiscoverChat() {
         aria-live="polite"
         className="flex max-h-[320px] min-h-[80px] flex-col gap-3 overflow-y-auto rounded-md border border-line bg-canvas p-4"
       >
-        {messages.length === 0 && isSending && (
-          <p className="text-sm text-muted">Starting the conversation…</p>
-        )}
-        {messages.map((message, index) => (
+        {transcript.map((message, index) => (
           <div
             key={index}
             className={
@@ -99,7 +85,12 @@ export function DiscoverChat() {
         ))}
       </div>
 
-      {error && <p className="text-sm text-signal">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-signal">
+          {error}
+        </p>
+      )}
+      <MessageQuotaNotice remaining={quota.remaining} limit={quota.limit} />
 
       <form onSubmit={handleSend} className="flex gap-2">
         <input
@@ -107,14 +98,15 @@ export function DiscoverChat() {
           type="text"
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          placeholder="e.g. I need to license my software to a customer…"
+          placeholder={outOfMessages ? "You're out of AI messages" : "e.g. I need to license my software to a customer…"}
           aria-label="Message"
-          disabled={isSending}
+          maxLength={MAX_MESSAGE_CHARS}
+          disabled={isSending || outOfMessages}
           className="flex-1 rounded-md border border-line bg-paper px-3 py-2 text-sm text-ink focus:border-ink focus:outline-none"
         />
         <button
           type="submit"
-          disabled={isSending || !input.trim()}
+          disabled={isSending || outOfMessages || !input.trim()}
           className="rounded-md bg-ink px-4 py-2 text-sm font-medium text-paper disabled:opacity-50"
         >
           Send

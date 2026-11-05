@@ -5,8 +5,8 @@ from pydantic import BaseModel
 from sqlmodel import Session as DbSession
 from sqlmodel import select
 
-from app.api.routes.chat import ChatMessage
 from app.core.auth import get_current_user
+from app.core.chat_limits import ChatMessage
 from app.core.database import get_session
 from app.core.documents import get_document as get_document_spec
 from app.models.document import Document

@@ -1,7 +1,26 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+def known_limits(monkeypatch):
+    """Pins every limit so tests don't depend on what's in .env. The rate limits are
+    set high because the limiter's counters live in memory, outliving the per-test
+    database wipe, and every TestClient shares one address: otherwise the many signups
+    across the suite would start failing with 429s partway through. Tests about a
+    specific limit set their own value."""
+    monkeypatch.setattr(settings, "ai_messages_per_account", 5)
+    monkeypatch.setattr(settings, "ai_messages_per_day", 200)
+    monkeypatch.setattr(settings, "signup_rate_limit", "10000/minute")
+    monkeypatch.setattr(settings, "signin_rate_limit", "10000/minute")
+    monkeypatch.setattr(settings, "trust_fly_client_ip", False)
+    limiter.reset()
+    yield
+    limiter.reset()
 
 
 @pytest.fixture()

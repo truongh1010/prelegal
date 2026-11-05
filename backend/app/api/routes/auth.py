@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, field_validator
 from sqlmodel import Session as DbSession
 from sqlmodel import select
 
+from app.core import quota
 from app.core.auth import SESSION_COOKIE_NAME, get_current_user
+from app.core.config import settings
 from app.core.database import get_session
+from app.core.rate_limit import limiter
 from app.core.security import hash_password, verify_password
 from app.models.user import User
 from app.models.user_session import UserSession
@@ -40,6 +43,11 @@ class UserOut(BaseModel):
     email: str
 
 
+class MeOut(UserOut):
+    ai_messages_remaining: int
+    ai_messages_limit: int
+
+
 def _set_session_cookie(response: Response, token: str) -> None:
     # Not `secure=True`: the app is only ever served over plain HTTP today (no
     # TLS termination anywhere in this project's deployment), and a Secure
@@ -54,7 +62,13 @@ def _set_session_cookie(response: Response, token: str) -> None:
 
 
 @router.post("/signup", status_code=201)
-def signup(credentials: Credentials, response: Response, db: DbSession = Depends(get_session)) -> UserOut:
+@limiter.limit(lambda: settings.signup_rate_limit)
+def signup(
+    request: Request,
+    credentials: Credentials,
+    response: Response,
+    db: DbSession = Depends(get_session),
+) -> UserOut:
     existing = db.exec(select(User).where(User.email == credentials.email)).first()
     if existing is not None:
         raise HTTPException(status_code=409, detail="An account with that email already exists.")
@@ -73,7 +87,13 @@ def signup(credentials: Credentials, response: Response, db: DbSession = Depends
 
 
 @router.post("/signin")
-def signin(credentials: Credentials, response: Response, db: DbSession = Depends(get_session)) -> UserOut:
+@limiter.limit(lambda: settings.signin_rate_limit)
+def signin(
+    request: Request,
+    credentials: Credentials,
+    response: Response,
+    db: DbSession = Depends(get_session),
+) -> UserOut:
     user = db.exec(select(User).where(User.email == credentials.email)).first()
     if user is None or not verify_password(credentials.password, user.hashed_password):
         # Deliberately generic: doesn't reveal whether the email or the password was wrong.
@@ -102,5 +122,9 @@ def logout(
 
 
 @router.get("/me")
-def me(user: User = Depends(get_current_user)) -> UserOut:
-    return UserOut(email=user.email)
+def me(user: User = Depends(get_current_user)) -> MeOut:
+    return MeOut(
+        email=user.email,
+        ai_messages_remaining=quota.remaining(user),
+        ai_messages_limit=settings.ai_messages_per_account,
+    )

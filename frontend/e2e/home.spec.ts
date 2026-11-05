@@ -7,7 +7,6 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("lists every catalog template, all enabled for creation", async ({ page }) => {
-  await mockDiscover(page, [{ message: "Hi! What document do you need?", matchedSlug: null }]);
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: /fill in a form/i })).toBeVisible();
@@ -21,7 +20,6 @@ test("lists every catalog template, all enabled for creation", async ({ page }) 
 });
 
 test("the page background is light in both light and dark OS color schemes", async ({ page }) => {
-  await mockDiscover(page, [{ message: "Hi! What document do you need?", matchedSlug: null }]);
   for (const colorScheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme });
     await page.goto("/");
@@ -34,7 +32,6 @@ test("the page background is light in both light and dark OS color schemes", asy
 });
 
 test("clicking Create navigates to the Mutual NDA creator", async ({ page }) => {
-  await mockDiscover(page, [{ message: "Hi! What document do you need?", matchedSlug: null }]);
   await page.goto("/");
   await page
     .locator("li", { hasText: "Mutual Non-Disclosure Agreement" })
@@ -48,7 +45,6 @@ test("clicking Create navigates to the Mutual NDA creator", async ({ page }) => 
 
 test("the discovery chat routes to the matched document once the user confirms", async ({ page }) => {
   await mockDiscover(page, [
-    { message: "Hi! What document do you need?", matchedSlug: null },
     {
       message: "Sounds like a Cloud Service Agreement - let's get started.",
       matchedSlug: "csa",
@@ -64,7 +60,6 @@ test("the discovery chat routes to the matched document once the user confirms",
 
 test("the discovery chat explains an unsupported request without navigating away", async ({ page }) => {
   await mockDiscover(page, [
-    { message: "Hi! What document do you need?", matchedSlug: null },
     {
       message: "We can't generate a residential lease, but a Pilot Agreement might be closest - want to try that?",
       matchedSlug: null,

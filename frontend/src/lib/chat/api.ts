@@ -1,3 +1,4 @@
+import { readErrorDetail } from "@/lib/http";
 import type { TemplateValues } from "@/lib/templates/types";
 
 export interface ChatMessage {
@@ -8,6 +9,32 @@ export interface ChatMessage {
 export interface ChatTurnResult {
   message: string;
   fields: TemplateValues;
+  messagesRemaining: number;
+}
+
+export class ChatApiError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+const GENERIC_ERROR = "Something went wrong sending that. Please try again.";
+
+async function toChatApiError(response: Response): Promise<ChatApiError> {
+  return new ChatApiError(response.status, await readErrorDetail(response, GENERIC_ERROR));
+}
+
+/** Limit and validation errors are written for the user, so they're shown as they
+ * arrive. Anything else (an outage, a network failure) gets a generic message. */
+export function friendlyChatError(error: unknown): string {
+  if (error instanceof ChatApiError) {
+    if (error.status === 401) return "Your session has expired. Please sign in again.";
+    if (error.status === 422 || error.status === 429) return error.message;
+  }
+  return GENERIC_ERROR;
 }
 
 // Empty by default so requests are same-origin (works once FastAPI serves the static
@@ -29,20 +56,25 @@ export async function sendChatTurn(
   });
 
   if (!response.ok) {
-    throw new Error(`Chat request failed with status ${response.status}`);
+    throw await toChatApiError(response);
   }
 
-  const data = (await response.json()) as { message: string; fields: Record<string, string | null> };
+  const data = (await response.json()) as {
+    message: string;
+    fields: Record<string, string | null>;
+    messages_remaining: number;
+  };
   const cleanedFields = Object.fromEntries(
     Object.entries(data.fields).filter(([, value]) => value != null),
   ) as TemplateValues;
 
-  return { message: data.message, fields: cleanedFields };
+  return { message: data.message, fields: cleanedFields, messagesRemaining: data.messages_remaining };
 }
 
 export interface DiscoverTurnResult {
   message: string;
   matchedSlug: string | null;
+  messagesRemaining: number;
 }
 
 export async function sendDiscoverTurn(messages: ChatMessage[]): Promise<DiscoverTurnResult> {
@@ -54,8 +86,13 @@ export async function sendDiscoverTurn(messages: ChatMessage[]): Promise<Discove
   });
 
   if (!response.ok) {
-    throw new Error(`Discover request failed with status ${response.status}`);
+    throw await toChatApiError(response);
   }
 
-  return (await response.json()) as DiscoverTurnResult;
+  const data = (await response.json()) as {
+    message: string;
+    matchedSlug: string | null;
+    messages_remaining: number;
+  };
+  return { message: data.message, matchedSlug: data.matchedSlug, messagesRemaining: data.messages_remaining };
 }
