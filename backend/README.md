@@ -22,5 +22,5 @@ uv run pytest
 
 ## Running as part of the full app
 
-See `../scripts/` for building and running the whole project (frontend + backend) as
-a single Docker container.
+See `../docker-compose.yml` for building and running the whole project (frontend +
+backend) as a single Docker container. The root `README.md` has the commands.

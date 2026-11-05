@@ -1,0 +1,26 @@
+name: prelegal
+
+services:
+  app:
+    build: .
+    image: prelegal
+    ports:
+      - "8000:8000"
+    # Optional here so a missing .env reaches the clearer OPENAI_API_KEY error below.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # The backend can't boot without this key, so refuse to start without it.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?Add a line like OPENAI_API_KEY=your-key to .env in the project root}
+    # Lets `docker compose up --wait` report success only once the app is serving.
+    # Runs inside the container, so it needs nothing installed on the host.
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request as u; u.urlopen('http://127.0.0.1:8000/api/health', timeout=2)
+      interval: 1s
+      timeout: 3s
+      retries: 30

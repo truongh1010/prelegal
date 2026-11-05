@@ -5,20 +5,14 @@ A platform for drafting common legal agreements
 
 ## Running locally
 
-Requires [Docker](https://www.docker.com/products/docker-desktop/).
+Requires [Docker](https://www.docker.com/products/docker-desktop/) with Compose, and a `.env` file in the project root containing `OPENAI_API_KEY=your-key`. Startup stops with an error if the key is missing.
+
+The same commands work on Mac, Linux and Windows:
 
 ```bash
-# Mac
-scripts/start-mac.sh
-scripts/stop-mac.sh
-
-# Linux
-scripts/start-linux.sh
-scripts/stop-linux.sh
-
-# Windows (PowerShell)
-scripts/start-windows.ps1
-scripts/stop-windows.ps1
+docker compose up --build -d --wait   # Start
+docker compose down                   # Stop
+docker compose logs app               # See why startup failed
 ```
 
-The app is served at http://localhost:8000. The database is SQLite and is recreated from scratch on every start.
+The app is served at http://localhost:8000. The database is SQLite and is recreated from scratch whenever the container starts.
